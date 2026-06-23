@@ -33,3 +33,8 @@ server/data/
 
 # agent / tooling workspace (research digests, scraped material — not app code)
 .claude/
+
+# root-level process/design docs (planning, specs, reviews) — keep only the
+# app-facing README. Anchored to repo root, so nested docs are unaffected.
+/*.md
+!/README.md
