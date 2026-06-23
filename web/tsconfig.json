@@ -1,0 +1,4 @@
+{
+  // Extends the auto-generated config produced by `nuxt prepare` (runs on postinstall).
+  "extends": "./.nuxt/tsconfig.json"
+}

@@ -1,0 +1,317 @@
+/* ============================================================================
+   即時交易台 — Shared component chrome + layout utilities (機構交易終端)
+   ----------------------------------------------------------------------------
+   theme.css is loaded BEFORE this file and owns ALL design tokens (surfaces,
+   --up/--down 紅漲綠跌, --accent cyan, --amber, --hairline, --radius*, --font-*,
+   --gap, flash keyframes, .num/.mono/.label, .c-up/.c-down).
+   This file defines NO tokens — it builds the reusable terminal shell: panels are
+   hairline-framed (not floating rounded cards), section headers carry a leading
+   amber tick, numbers are monospace, density over whitespace.
+   ========================================================================== */
+
+/* ============================================================================
+   PANEL — a hairline-framed terminal block (flat, sharp, no drop shadow)
+   ========================================================================== */
+.panel {
+  display: flex;
+  flex-direction: column;
+  background: var(--surface);
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius);
+  overflow: hidden;
+}
+
+.panel-head {
+  display: flex;
+  flex-direction: row;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 11px;
+  border-bottom: 1px solid var(--hairline);
+  background: var(--surface-2);
+}
+
+/* Section title: tracked uppercase terminal label with a leading amber tick. */
+.panel-title {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--text-2);
+}
+.panel-title::before {
+  content: "";
+  width: 3px;
+  height: 12px;
+  background: var(--amber);
+  border-radius: 1px;
+  flex: none;
+}
+
+.panel-body {
+  padding: 11px;
+  overflow: auto;
+}
+
+/* ============================================================================
+   TAG / CHIP — small squared status pill (terminal, not rounded)
+   ========================================================================== */
+.tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 2px 7px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--hairline);
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  letter-spacing: 0.06em;
+  background: var(--surface-3);
+  color: var(--text-2);
+}
+
+/* ============================================================================
+   BUTTONS — flat terminal blocks; buy(red)/sell(green)/ghost variants
+   ========================================================================== */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 9px 13px;
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  font-family: var(--font-ui);
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  color: var(--text);
+  background: var(--surface-3);
+  transition:
+    background 0.12s ease,
+    border-color 0.12s ease,
+    filter 0.12s ease,
+    transform 0.06s ease,
+    opacity 0.12s ease;
+}
+.btn:hover {
+  filter: brightness(1.12);
+}
+.btn:active {
+  transform: translateY(1px);
+  filter: brightness(0.95);
+}
+.btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+  filter: none;
+  transform: none;
+}
+
+/* full-width modifier (order ticket actions) */
+.btn-block {
+  width: 100%;
+}
+
+/* 買進 — red (漲) */
+.btn-buy {
+  background: var(--up);
+  color: #200305;
+  text-shadow: 0 1px 0 rgba(255, 255, 255, 0.15);
+}
+/* 賣出 — green (跌) */
+.btn-sell {
+  background: var(--down);
+  color: #03241a;
+  text-shadow: 0 1px 0 rgba(255, 255, 255, 0.18);
+}
+/* neutral outline action */
+.btn-ghost {
+  background: transparent;
+  border: 1px solid var(--border-strong);
+  color: var(--text-2);
+}
+.btn-ghost:hover {
+  border-color: var(--accent);
+  color: var(--text);
+  filter: none;
+}
+
+/* ============================================================================
+   FORM FIELDS — label + input wrapper, shared input styling
+   ========================================================================== */
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+.field > label {
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--text-3);
+}
+
+.field input,
+.input {
+  width: 100%;
+  padding: 8px 10px;
+  background: var(--bg-2);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  color: var(--text);
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  transition:
+    border-color 0.12s ease,
+    box-shadow 0.12s ease;
+}
+.field input:focus,
+.input:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: var(--accent-soft) 0 0 0 3px;
+}
+.field input:disabled,
+.input:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* ============================================================================
+   TABLE — dense right-aligned numeric grid (book / blotter / quotes)
+   ========================================================================== */
+table.tbl {
+  width: 100%;
+  border-collapse: collapse;
+}
+table.tbl th {
+  padding: 6px 8px;
+  text-align: right;
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-3);
+  border-bottom: 1px solid var(--hairline);
+}
+table.tbl td {
+  padding: 6px 8px;
+  text-align: right;
+  border-bottom: 1px solid var(--grid-line);
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+}
+/* first column reads as a label, left-aligned */
+table.tbl th:first-child,
+table.tbl td:first-child {
+  text-align: left;
+}
+table.tbl tbody tr:hover {
+  background: var(--surface-2);
+}
+
+/* ============================================================================
+   STAT GRID — dense terminal label/value block (quote header, account summary)
+   Each cell: tiny tracked label over a monospace value.
+   ========================================================================== */
+.statgrid {
+  display: grid;
+  gap: 1px;
+  background: var(--hairline);
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+}
+.stat {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 7px 10px;
+  background: var(--surface);
+}
+.stat-k {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--text-3);
+}
+.stat-v {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--text);
+}
+
+/* ============================================================================
+   DEPTH BAR — absolute background fill behind order-book rows
+   Parent row/cell must be position:relative; place real content above z-index 0.
+   ========================================================================== */
+.depth-bar {
+  position: absolute;
+  top: 0;
+  height: 100%;
+  z-index: 0;
+  opacity: 0.9;
+  pointer-events: none;
+}
+/* 買 (bid) — red soft, fills from the right */
+.depth-bar--bid {
+  right: 0;
+  background: var(--up-soft);
+}
+/* 賣 (ask) — green soft, fills from the right */
+.depth-bar--ask {
+  right: 0;
+  background: var(--down-soft);
+}
+
+/* ============================================================================
+   EMPTY — muted centered placeholder for no-data states
+   ========================================================================== */
+.empty {
+  padding: 24px;
+  text-align: center;
+  font-size: 13px;
+  color: var(--text-3);
+}
+
+/* ============================================================================
+   LAYOUT HELPERS — small composable flex / text utilities
+   ========================================================================== */
+.row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.stack {
+  display: flex;
+  flex-direction: column;
+  gap: var(--gap-sm);
+}
+.grow {
+  flex: 1;
+}
+.right {
+  text-align: right;
+}
+.dim {
+  color: var(--text-3);
+}
+
+/* A hairline rule for in-flow section breaks. */
+.hairline {
+  height: 1px;
+  background: var(--hairline);
+  border: 0;
+  margin: 0;
+}

@@ -1,0 +1,35 @@
+# dependencies
+node_modules/
+
+# build output
+server/dist/
+web/.nuxt/
+web/.output/
+web/dist/
+
+# nuxt
+web/.data/
+.nitro/
+.cache/
+
+# env / secrets
+.env
+.env.*
+!.env.example
+
+# logs
+*.log
+npm-debug.log*
+
+# os / editor
+.DS_Store
+.idea/
+.vscode/
+*.local
+
+# runtime data (re-created on first run: universe cache, persisted watchlist,
+# per-symbol k-line cache). store.ts / universe cache / historyCache mkdir it.
+server/data/
+
+# agent / tooling workspace (research digests, scraped material — not app code)
+.claude/

@@ -1,0 +1,245 @@
+/* ============================================================================
+   即時交易台 — 機構交易終端 (institutional trading terminal) design tokens
+   ----------------------------------------------------------------------------
+   Aesthetic: deep-black terminal, hairline structure (not card boxes), tabular
+   monospace numbers as the hero, amber + cyan as the two non-semantic accents.
+   Taiwan market convention: 漲 = RED (--up), 跌 = GREEN (--down).
+
+   Fonts are self-hosted via @fontsource (loaded in nuxt.config before this file):
+     numbers → "JetBrains Mono Variable" · Chinese/UI → "Noto Sans TC".
+   Every token NAME used anywhere in the app is preserved here; only values move.
+   ========================================================================== */
+
+:root {
+  /* ── surfaces (true terminal black stack — barely-lifted panels) ── */
+  --bg: #050608;
+  --bg-2: #08090d;
+  --surface: #0a0c11;
+  --surface-2: #0e1118;
+  --surface-3: #141822;
+  --elevated: #171c27;
+
+  /* ── hairlines & borders (the structural language of the terminal) ── */
+  --hairline: #1a1f2b; /* default divider — quiet */
+  --border: #1a1f2b; /* alias kept for existing component refs */
+  --border-strong: #2a3343;
+  --grid-line: #11141c; /* chart grid — almost subliminal */
+
+  /* ── text ── */
+  --text: #e9eef5;
+  --text-2: #9aa6b7;
+  /* WCAG AA (≈4.9:1) on the near-black surfaces (PQ-6) */
+  --text-3: #828c9c;
+  --text-dim: #4a5264;
+
+  /* ── semantic market colors (TAIWAN: up=red 漲, down=green 跌) ── */
+  --up: #ff4d5e;
+  --up-soft: rgba(255, 77, 94, 0.15);
+  --up-line: rgba(255, 77, 94, 0.6);
+  --up-strong: #ff6b78;
+  --down: #19d18a;
+  --down-soft: rgba(25, 209, 138, 0.15);
+  --down-line: rgba(25, 209, 138, 0.6);
+  --down-strong: #3ddca0;
+  --flat: #828c9c;
+  --flat-soft: rgba(130, 140, 156, 0.13);
+
+  /* ── accents ── */
+  --accent: #36c5f0; /* cyan — interactivity: focus, links, toggles, selection */
+  --accent-soft: rgba(54, 197, 240, 0.14);
+  --accent-line: rgba(54, 197, 240, 0.5);
+  --amber: #f5b73a; /* terminal signature: section ticks, active nav, live */
+  --amber-soft: rgba(245, 183, 58, 0.14);
+  --gold: var(--amber); /* alias kept for existing component refs */
+  --buy: var(--up); /* 買進 */
+  --sell: var(--down); /* 賣出 */
+
+  /* ── status ── */
+  --ok: #19d18a;
+  --warn: #f5b73a;
+  --bad: #ff4d5e;
+  --live: #f5b73a;
+
+  /* ── typography ── */
+  --font-ui:
+    "Noto Sans TC", system-ui, -apple-system, "Segoe UI", Roboto,
+    "Helvetica Neue", sans-serif;
+  --font-mono:
+    "JetBrains Mono Variable", "JetBrains Mono", "SF Mono", ui-monospace,
+    "Roboto Mono", Menlo, Consolas, monospace;
+  --font-display: var(--font-mono); /* terminal headers/wordmark */
+
+  /* ── geometry (sharp, dense — kills the rounded-card look) ── */
+  --radius: 3px;
+  --radius-sm: 2px;
+  --radius-lg: 4px;
+  --gap: 11px;
+  --gap-sm: 7px;
+
+  /* ── elevation (terminals are flat; shadow only for true overlays) ── */
+  --shadow: 0 10px 34px rgba(0, 0, 0, 0.6);
+  --shadow-lg: 0 18px 56px rgba(0, 0, 0, 0.7);
+  --glow-up: 0 0 0 1px rgba(255, 77, 94, 0.3), 0 0 14px rgba(255, 77, 94, 0.14);
+  --glow-down: 0 0 0 1px rgba(25, 209, 138, 0.3), 0 0 14px rgba(25, 209, 138, 0.14);
+  --glow-amber: 0 0 0 1px rgba(245, 183, 58, 0.35), 0 0 12px rgba(245, 183, 58, 0.2);
+}
+
+/* ── reset ── */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#__nuxt,
+#__nuxt > div {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  background:
+    radial-gradient(1500px 560px at 50% -260px, rgba(54, 197, 240, 0.05), transparent 70%),
+    radial-gradient(1100px 700px at 100% 120%, rgba(245, 183, 58, 0.03), transparent 60%),
+    var(--bg);
+  background-attachment: fixed;
+  color: var(--text);
+  font-family: var(--font-ui);
+  font-size: 13.5px;
+  line-height: 1.45;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+/* ── film-grain overlay: faint terminal texture, never intercepts input ── */
+body::after {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
+  opacity: 0.022;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+
+button {
+  font-family: inherit;
+  cursor: pointer;
+}
+
+/* ── numeric / tabular figures — the hero typeface of the desk ── */
+.num,
+.mono {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum" 1, "zero" 1, "ss01" 1;
+  letter-spacing: -0.01em;
+}
+
+/* ── small tracked uppercase terminal label ── */
+.label {
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  font-weight: 500;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--text-3);
+}
+
+/* ── semantic color utilities ── */
+.c-up {
+  color: var(--up);
+}
+.c-down {
+  color: var(--down);
+}
+.c-flat {
+  color: var(--flat);
+}
+.c-accent {
+  color: var(--accent);
+}
+.c-amber {
+  color: var(--amber);
+}
+.bg-up {
+  background: var(--up-soft);
+}
+.bg-down {
+  background: var(--down-soft);
+}
+
+/* ── accessibility: visible keyboard focus ring (PQ-6 / WCAG 2.4.7) ── */
+:focus-visible {
+  outline: 1px solid var(--accent);
+  outline-offset: 2px;
+}
+
+/* ── stale data utility: desaturate + dim a surface whose feed is delayed (PQ-6) ── */
+.stale {
+  filter: saturate(0.4) opacity(0.7);
+}
+
+/* ── price flash animations (tick direction) ── */
+@keyframes flash-up {
+  0% {
+    background-color: var(--up-soft);
+  }
+  100% {
+    background-color: transparent;
+  }
+}
+@keyframes flash-down {
+  0% {
+    background-color: var(--down-soft);
+  }
+  100% {
+    background-color: transparent;
+  }
+}
+.flash-up {
+  animation: flash-up 0.55s ease-out;
+}
+.flash-down {
+  animation: flash-down 0.55s ease-out;
+}
+
+@keyframes pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.35;
+  }
+}
+.pulse {
+  animation: pulse 1.6s ease-in-out infinite;
+}
+
+/* ── scrollbars ── */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--border-strong) transparent;
+}
+*::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+*::-webkit-scrollbar-thumb {
+  background: var(--border-strong);
+  border-radius: 8px;
+}
+*::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .flash-up,
+  .flash-down,
+  .pulse {
+    animation: none;
+  }
+}
