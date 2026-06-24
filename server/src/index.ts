@@ -1,4 +1,6 @@
 import http from "node:http";
+import path from "node:path";
+import fs from "node:fs";
 import express from "express";
 import cors from "cors";
 import { config, INSTRUMENTS } from "./config.js";
@@ -41,6 +43,20 @@ async function main(): Promise<void> {
     "/api",
     createApiRouter({ feed, provider, watchlist, candleStore, historyCache }),
   );
+
+  // Optional bundled SPA (desktop / Electron packaging). When WEB_DIST points at
+  // a Nuxt `generate` output, serve it from this same origin with an SPA history
+  // fallback, so the whole app is reachable from one local server (no separate
+  // web process). Unset in normal dev — Nuxt runs its own dev server then.
+  const webDist = process.env.WEB_DIST;
+  if (webDist && fs.existsSync(webDist)) {
+    const indexHtml = path.join(webDist, "index.html");
+    app.use(express.static(webDist));
+    // Anything that is not an /api route falls back to the SPA entry. (/ws is a
+    // WebSocket upgrade handled below, never an Express GET, so it is unaffected.)
+    app.get(/^(?!\/api(?:\/|$)).*/, (_req, res) => res.sendFile(indexHtml));
+    console.log(`[twse-desk] serving bundled web UI from ${webDist}`);
+  }
 
   const server = http.createServer(app);
   const wss = createWsServer(server, feed);

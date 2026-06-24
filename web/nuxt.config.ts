@@ -2,7 +2,10 @@
 export default defineNuxtConfig({
   compatibilityDate: "2025-06-01",
   devtools: { enabled: false },
-  ssr: true,
+  // SSR on for normal web serving; off when building the desktop (Electron)
+  // bundle, where `nuxt generate` then emits a pure-static SPA served by the
+  // Node backend from its own origin (WEB_DIST). Set ELECTRON_BUILD=1 to build it.
+  ssr: process.env.ELECTRON_BUILD === "1" ? false : true,
 
   // Self-hosted webfonts FIRST (so tokens resolve to real families, not a
   // silent system-ui fallback): JetBrains Mono = numbers, Noto Sans TC = UI.

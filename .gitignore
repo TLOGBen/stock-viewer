@@ -3,9 +3,13 @@ node_modules/
 
 # build output
 server/dist/
+server/bundle/
 web/.nuxt/
 web/.output/
 web/dist/
+
+# electron desktop packaging output
+dist-electron/
 
 # nuxt
 web/.data/

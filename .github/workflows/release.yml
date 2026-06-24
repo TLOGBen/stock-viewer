@@ -1,0 +1,46 @@
+name: Release Desktop App
+
+# Build the Windows desktop installer in the cloud (windows-latest → native,
+# no wine needed) and publish it to a GitHub Release. The published assets
+# (Setup .exe, latest.yml, .blockmap) are what the app's auto-updater reads.
+#
+# Trigger: push a version tag, e.g.
+#   git tag v1.0.1 && git push origin v1.0.1
+# or run manually from the Actions tab (workflow_dispatch).
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+
+permissions:
+  contents: write # required for electron-builder to create the GitHub Release
+
+jobs:
+  release-windows:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install desktop (root) dependencies
+        run: npm install
+
+      - name: Install backend dependencies (esbuild bundle)
+        run: npm --prefix server install
+
+      - name: Install web dependencies
+        run: npm --prefix web install
+
+      - name: Build and publish installer
+        env:
+          # Provided automatically by Actions; electron-builder uses it both to
+          # create the Release and to infer owner/repo for the update feed.
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: npm run release:win

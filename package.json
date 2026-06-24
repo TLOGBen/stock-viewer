@@ -1,0 +1,64 @@
+{
+  "name": "twse-trading-desk-desktop",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Desktop (Electron) wrapper for the Taiwan real-time trading desk.",
+  "main": "electron/main.js",
+  "author": "Taiwan Trading Desk",
+  "scripts": {
+    "build:server": "node server/scripts/bundle.mjs",
+    "build:web": "cross-env ELECTRON_BUILD=1 npm --prefix web run generate",
+    "build:all": "npm run build:server && npm run build:web",
+    "electron:dev": "npm run build:all && electron .",
+    "dist:win": "npm run build:all && electron-builder --win --x64",
+    "dist:dir": "npm run build:all && electron-builder --dir",
+    "release:win": "npm run build:all && electron-builder --win --x64 --publish always"
+  },
+  "dependencies": {
+    "electron-updater": "^6.3.9"
+  },
+  "devDependencies": {
+    "cross-env": "^7.0.3",
+    "electron": "^31.7.7",
+    "electron-builder": "^24.13.3"
+  },
+  "build": {
+    "appId": "io.github.twse.tradingdesk",
+    "productName": "即時交易台",
+    "copyright": "© 2026 Taiwan Trading Desk",
+    "directories": {
+      "output": "dist-electron",
+      "buildResources": "electron/build"
+    },
+    "files": [
+      "electron/**/*"
+    ],
+    "extraResources": [
+      {
+        "from": "server/bundle",
+        "to": "server/bundle"
+      },
+      {
+        "from": "web/.output/public",
+        "to": "web/public"
+      }
+    ],
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": ["x64"]
+        }
+      ]
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "即時交易台",
+      "include": "electron/build/installer.nsh"
+    }
+  }
+}
