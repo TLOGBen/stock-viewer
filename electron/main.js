@@ -126,16 +126,23 @@ async function setupAutoUpdates() {
   autoUpdater.autoInstallOnAppQuit = true;
 
   autoUpdater.on("update-downloaded", async (info) => {
-    const { response } = await dialog.showMessageBox({
-      type: "info",
-      buttons: ["立即重啟更新", "稍後"],
-      defaultId: 0,
-      cancelId: 1,
-      title: "有新版本",
-      message: `已下載新版本 ${info.version}。`,
-      detail: "要現在重新啟動以完成更新嗎？（也可以下次開啟時自動套用）",
-    });
-    if (response === 0) autoUpdater.quitAndInstall();
+    // Guard the dialog: if the window is already gone (app quitting while a
+    // download finishes), showMessageBox rejects — swallow it like the other
+    // updater paths rather than surfacing an unhandledRejection.
+    try {
+      const { response } = await dialog.showMessageBox({
+        type: "info",
+        buttons: ["立即重啟更新", "稍後"],
+        defaultId: 0,
+        cancelId: 1,
+        title: "有新版本",
+        message: `已下載新版本 ${info.version}。`,
+        detail: "要現在重新啟動以完成更新嗎？（也可以下次開啟時自動套用）",
+      });
+      if (response === 0) autoUpdater.quitAndInstall();
+    } catch {
+      /* window gone / app quitting — update applies on next launch anyway */
+    }
   });
 
   autoUpdater.on("error", () => {
@@ -164,6 +171,14 @@ app.on("window-all-closed", () => {
 });
 
 // Make sure the backend child is not orphaned when the app exits.
+//
+// NOTE on shutdown semantics: utilityProcess.kill() sends SIGTERM, but on
+// Windows there are no POSIX signals — the child is terminated hard, so the
+// backend's own SIGINT/SIGTERM graceful-shutdown handler (server/src/index.ts)
+// only runs on POSIX/dev. That is fine here: the backend has nothing buffered
+// to flush (universe/watchlist caches are written eagerly), and the child is
+// lifecycle-bound to this process. Do not mistake that handler for the
+// authoritative desktop shutdown path.
 app.on("before-quit", () => {
   if (backend) {
     try {

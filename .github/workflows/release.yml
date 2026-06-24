@@ -45,6 +45,21 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: npm run release:win
 
+      - name: Assert the auto-update feed was generated
+        shell: bash
+        # The update feed (app-update.yml) is what electron-updater reads at
+        # runtime to find new releases. It is only emitted when electron-builder
+        # can resolve the GitHub repo (here, inferred from the checkout's git
+        # remote). Fail loudly if it is missing instead of shipping an installer
+        # whose auto-update silently never works.
+        run: |
+          f="dist-electron/win-unpacked/resources/app-update.yml"
+          if [ ! -f "$f" ]; then
+            echo "::error::$f missing — auto-update feed was not generated; the release would not be updatable."
+            exit 1
+          fi
+          echo "auto-update feed OK:"; cat "$f"
+
       - name: Publish the release (electron-builder uploads it as a draft)
         shell: bash
         env:

@@ -69,6 +69,15 @@ async function main(): Promise<void> {
   }, config.universeRefreshMs);
   refreshTimer.unref();
 
+  // Fail fast and loud on bind errors (e.g. EADDRINUSE when the port is already
+  // taken by a second instance or a stray dev server). Without this the error
+  // is unhandled and crashes the process anyway, but the desktop launcher would
+  // sit on waitForPort for the full timeout before reporting a generic failure.
+  server.on("error", (err) => {
+    console.error(`[twse-desk] server failed to bind ${config.host}:${config.port}:`, err);
+    process.exit(1);
+  });
+
   server.listen(config.port, config.host, () => {
     console.log(
       `[twse-desk] http://${config.host}:${config.port}  ws://${config.host}:${config.port}/ws  ` +
