@@ -1,6 +1,6 @@
 {
   "name": "twse-trading-desk-desktop",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "private": true,
   "description": "Desktop (Electron) wrapper for the Taiwan real-time trading desk.",
   "main": "electron/main.js",
