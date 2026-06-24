@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
-import { CandleStore } from "../src/candleStore.js";
-import type { Candle } from "../src/types.js";
+import { CandleStore } from "../src/persistence/candleStore.js";
+import type { Candle } from "../src/domain/index.js";
 
 /** Bar-open epoch ms for a given minute index (minute 0 = epoch 0). */
 const minute = (m: number): number => m * 60_000;

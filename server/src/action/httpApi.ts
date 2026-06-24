@@ -1,14 +1,29 @@
 import { Router } from "express";
-import { config } from "./config.js";
-import type { TwseFeed } from "./twseFeed.js";
-import type { UniverseProvider } from "./universe/UniverseProvider.js";
-import type { WatchlistStore } from "./watchlist/store.js";
-import type { CandleStore } from "./candleStore.js";
-import type { HistoryCache } from "./historyCache.js";
-import { rollupDaily } from "./historyCache.js";
-import { computeStats } from "./marketStats.js";
-import { isValidSymbol } from "./validation.js";
-import type { Security, Candle, KlineInterval } from "./types.js";
+import { config } from "../config.js";
+import type { TwseFeed } from "../usecase/quoteFeed.js";
+import type { UniverseProvider } from "../usecase/universeService.js";
+import type { WatchlistStore } from "../persistence/index.js";
+import type { CandleStore } from "../persistence/index.js";
+import type { HistoryCache } from "../persistence/index.js";
+import type { KlineInterval } from "../domain/index.js";
+import { validateSymbol } from "../middleware/index.js";
+import {
+  getKlines,
+  searchUniverse,
+  listSecurities,
+  getWatchlist,
+  setWatchlist,
+  unknownSymbols,
+  getMarketStats,
+  getHealth,
+} from "../usecase/index.js";
+
+/**
+ * action/httpApi — the HTTP entry point. Each route only validates the request,
+ * delegates to a `usecase/*` function, and serializes the result. No business
+ * logic lives here. Mounted at "/api" by index.ts. Symbol-bearing routes use
+ * the `validateSymbol` middleware (path-traversal guard, uniform 400 shape).
+ */
 
 /** All valid k-line interval tokens (intraday + daily roll-ups). */
 const VALID_INTERVALS: readonly KlineInterval[] = [
@@ -36,36 +51,19 @@ function parseKlineLimit(raw: unknown): number {
   return Math.min(Math.trunc(n), MAX_KLINE_LIMIT);
 }
 
-/**
- * Build the REST router for the TWSE backend. All responses are JSON.
- * Mounted at "/api" by index.ts.
- */
 export interface ApiDeps {
   feed: TwseFeed;
   provider: UniverseProvider;
   watchlist: WatchlistStore;
   candleStore: CandleStore;
   historyCache: HistoryCache;
-}
-
-/**
- * Resolve the watchlist symbols to Security rows. Every persisted symbol gets a
- * row — unknown ones (e.g. a fresh IPO not yet in the daily directory, or a
- * failed universe load) fall back to a minimal row rather than silently
- * vanishing from the user's list.
- */
-function watchlistItems(
-  symbols: string[],
-  provider: UniverseProvider,
-): Security[] {
-  return symbols.map(
-    (sym) =>
-      provider.get(sym) ?? { symbol: sym, name: sym, exch: "tse", type: "stock" },
-  );
+  /** App version surfaced by /health (defaults to config.version-less fallback). */
+  version?: string;
 }
 
 export function createApiRouter(deps: ApiDeps): Router {
   const { feed, provider, watchlist, candleStore, historyCache } = deps;
+  const version = deps.version ?? "0.0.0";
   const router = Router();
 
   router.get("/instruments", (_req, res) => {
@@ -96,15 +94,10 @@ export function createApiRouter(deps: ApiDeps): Router {
 
   // ─────────────────────────── K-lines (Phase 3) ───────────────────────────
 
-  router.get("/klines/:symbol", (req, res) => {
+  router.get("/klines/:symbol", validateSymbol(), (req, res) => {
     void (async () => {
-      const { symbol } = req.params;
-      // Reject malformed symbols before they can reach the on-disk cache path
-      // (path-traversal guard; Express URL-decodes %2f in route params).
-      if (!isValidSymbol(symbol)) {
-        res.status(400).json({ error: `Invalid symbol: ${symbol}` });
-        return;
-      }
+      // validateSymbol middleware has already guaranteed a well-formed symbol.
+      const symbol = req.params["symbol"] ?? "";
       const rawInterval =
         typeof req.query["interval"] === "string"
           ? req.query["interval"]
@@ -119,23 +112,12 @@ export function createApiRouter(deps: ApiDeps): Router {
       const limit = parseKlineLimit(req.query["limit"]);
 
       try {
-        let candles: Candle[];
-        if (
-          interval === "1m" ||
-          interval === "5m" ||
-          interval === "15m"
-        ) {
-          // Intraday: served from the in-memory fold (1m/5m/15m only).
-          candles = candleStore.getIntraday(symbol, interval, limit);
-        } else {
-          // Daily/weekly/monthly: backfilled from STOCK_DAY via the cache,
-          // rolled up for W/M. Resolve the exchange (default tse).
-          const sec = provider.get(symbol);
-          const exch = sec?.exch ?? "tse";
-          const daily = await historyCache.getDaily(symbol, exch);
-          candles =
-            interval === "D" ? daily : rollupDaily(daily, interval);
-        }
+        const candles = await getKlines(
+          { candleStore, historyCache, provider },
+          symbol,
+          interval,
+          limit,
+        );
         res.json({ symbol, interval, candles });
       } catch (err) {
         console.error(`[klines] ${symbol}/${interval} failed:`, err);
@@ -146,17 +128,12 @@ export function createApiRouter(deps: ApiDeps): Router {
 
   // ─────────────────────────── Symbol stats (QM-2) ───────────────────────────
 
-  router.get("/stats/:symbol", (req, res) => {
+  router.get("/stats/:symbol", validateSymbol(), (req, res) => {
     void (async () => {
-      const { symbol } = req.params;
-      // Path-traversal guard before the symbol reaches the daily cache file path.
-      if (!isValidSymbol(symbol)) {
-        res.status(400).json({ error: `Invalid symbol: ${symbol}` });
-        return;
-      }
-      const exch = provider.get(symbol)?.exch ?? "tse";
+      // validateSymbol middleware has already guaranteed a well-formed symbol.
+      const symbol = req.params["symbol"] ?? "";
       try {
-        const stats = await computeStats(symbol, exch, historyCache);
+        const stats = await getMarketStats({ historyCache, provider }, symbol);
         res.json(stats);
       } catch (err) {
         console.error(`[stats] ${symbol} failed:`, err);
@@ -168,12 +145,12 @@ export function createApiRouter(deps: ApiDeps): Router {
   // ─────────────────────────── Universe / search ───────────────────────────
 
   router.get("/securities", (_req, res) => {
-    const securities = provider.all();
+    const snap = listSecurities(provider);
     res.json({
-      asOf: provider.asOf,
-      stale: provider.stale,
-      count: securities.length,
-      securities,
+      asOf: snap.asOf,
+      stale: snap.stale,
+      count: snap.securities.length,
+      securities: snap.securities,
     });
   });
 
@@ -182,7 +159,8 @@ export function createApiRouter(deps: ApiDeps): Router {
     const rawLimit = req.query["limit"];
     const limit =
       typeof rawLimit === "string" ? Number.parseInt(rawLimit, 10) : undefined;
-    const results = provider.search(
+    const results = searchUniverse(
+      provider,
       q,
       Number.isFinite(limit) ? limit : undefined,
     );
@@ -192,12 +170,7 @@ export function createApiRouter(deps: ApiDeps): Router {
   // ─────────────────────────── Watchlist ───────────────────────────
 
   router.get("/watchlist", (_req, res) => {
-    const symbols = watchlist.get();
-    res.json({
-      symbols,
-      updatedAt: watchlist.updatedAtMs(),
-      items: watchlistItems(symbols, provider),
-    });
+    res.json(getWatchlist(watchlist, provider));
   });
 
   router.put("/watchlist", (req, res) => {
@@ -217,21 +190,15 @@ export function createApiRouter(deps: ApiDeps): Router {
     }
 
     const requested = symbols as string[];
-    const unknown = requested.filter((s) => provider.get(s) == null);
+    const unknown = unknownSymbols(requested, provider);
     if (unknown.length > 0) {
       res.status(400).json({ error: `Unknown symbol(s): ${unknown.join(", ")}` });
       return;
     }
 
-    void watchlist
-      .set(requested)
-      .then(() => {
-        const next = watchlist.get();
-        res.json({
-          symbols: next,
-          updatedAt: watchlist.updatedAtMs(),
-          items: watchlistItems(next, provider),
-        });
+    void setWatchlist(watchlist, provider, requested)
+      .then((view) => {
+        res.json(view);
       })
       .catch((err) => {
         console.error("[watchlist] set failed:", err);
@@ -240,7 +207,13 @@ export function createApiRouter(deps: ApiDeps): Router {
   });
 
   router.get("/health", (_req, res) => {
-    res.json({ ok: true, uptime: process.uptime() });
+    const report = getHealth({
+      feed,
+      universe: provider,
+      uptimeMs: () => Math.round(process.uptime() * 1000),
+      version,
+    });
+    res.json(report);
   });
 
   return router;

@@ -52,6 +52,7 @@ function onSelect(): void {
       <span class="symbol mono">{{ props.quote.symbol }}</span>
       <span class="name">{{ props.quote.name }}</span>
       <LimitBadge :state="limitState" />
+      <SourceBadge :source="props.quote.source" />
     </div>
 
     <div class="price-row">

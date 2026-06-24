@@ -2,14 +2,14 @@ import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 
 import { config } from "../src/config.js";
-import type { InstrumentMeta } from "../src/types.js";
+import type { InstrumentMeta } from "../src/domain/types.js";
 import {
   buildExCh,
   computeMarketStatus,
   numOrNull,
   parseLevels,
   parseMisResponse,
-} from "../src/twseFeed.js";
+} from "../src/domain/index.js";
 
 /** Real captured TWSE MIS payload (all z === "-", populated book/o/h/l/y). */
 const sample = JSON.parse(

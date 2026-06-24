@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { tickSizeFor, decimalsFor, roundToTick } from "../src/tickSize.js";
+import { tickSizeFor, decimalsFor, roundToTick } from "../src/domain/tickSize.js";
 
 describe("tickSizeFor — stock ladder boundaries", () => {
   // [price, expected step, expected decimals]

@@ -119,6 +119,7 @@ const stats = computed<{ label: string; value: string; cls?: string }[]>(() => {
             <span class="detail-pct">{{ formatPercent(q.changePercent) }}</span>
           </span>
           <LimitBadge :state="limitState" />
+          <SourceBadge :source="q.source" />
         </div>
 
         <div class="detail-stats statgrid">

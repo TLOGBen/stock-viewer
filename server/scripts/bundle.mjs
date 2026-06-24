@@ -5,12 +5,9 @@
 // native and is unambiguous to Electron's utilityProcess (a bare `.js` next to
 // no package.json would otherwise be misread as ESM/CJS depending on context).
 //
-// CAVEAT: `import.meta.url` is NOT available under the cjs output format —
-// esbuild compiles it to an empty object, so config.ts's `new URL("../data/",
-// import.meta.url)` fallback would throw "Invalid URL". That branch is never
-// reached in the desktop app because main.js always passes DATA_DIR, which
-// config.ts honors before touching import.meta.url. If you ever run this bundle
-// WITHOUT DATA_DIR set, add `define: { "import.meta.url": ... }` here first.
+// `import.meta.url` is undefined under cjs output; the banner + define below
+// replace it with a real file URL from __filename, so config.ts (resolveDataDir)
+// and index.ts (APP_VERSION) resolve correctly even without the DATA_DIR env.
 import { build } from "esbuild";
 import { fileURLToPath } from "node:url";
 import { dirname, resolve } from "node:path";
@@ -26,5 +23,12 @@ await build({
   format: "cjs",
   target: "node20",
   external: ["electron"],
+  // `import.meta.url` is undefined under cjs output; replace it with a real file
+  // URL from __filename so config.ts (resolveDataDir) and index.ts (APP_VERSION
+  // reads ../package.json) resolve correctly when run as the bundled file.
+  banner: {
+    js: "const __importMetaUrl = require('node:url').pathToFileURL(__filename).href;",
+  },
+  define: { "import.meta.url": "__importMetaUrl" },
   logLevel: "info",
 });

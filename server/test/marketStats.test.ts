@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
-import { statsFromDaily } from "../src/marketStats.js";
-import type { Candle } from "../src/types.js";
+import { statsFromDaily } from "../src/domain/marketStats.js";
+import type { Candle } from "../src/domain/types.js";
 
 /** Build an ascending daily candle at day-index `i` with explicit OHLCV. */
 const bar = (

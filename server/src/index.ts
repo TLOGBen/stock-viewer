@@ -1,24 +1,44 @@
 import http from "node:http";
-import path from "node:path";
-import fs from "node:fs";
 import express from "express";
-import cors from "cors";
+import { createRequire } from "node:module";
 import { config, INSTRUMENTS } from "./config.js";
-import { TwseFeed } from "./twseFeed.js";
-import { createApiRouter } from "./restApi.js";
-import { createWsServer } from "./wsServer.js";
-import { UniverseProvider } from "./universe/UniverseProvider.js";
-import { WatchlistStore } from "./watchlist/store.js";
-import { CandleStore } from "./candleStore.js";
-import { HistoryCache } from "./historyCache.js";
+import { TwseFeed, UniverseProvider } from "./usecase/index.js";
+import { createApiRouter, createWsServer } from "./action/index.js";
+import {
+  corsMiddleware,
+  jsonBody,
+  mountSpaStatic,
+  errorHandler,
+} from "./middleware/index.js";
+import { WatchlistStore, CandleStore, HistoryCache } from "./persistence/index.js";
+
+/**
+ * index.ts — composition root. Assembles the six layers and injects
+ * dependencies (adapters → persistence → usecase → action), wires the
+ * cross-cutting middleware, then starts the HTTP + WS server. No business
+ * logic lives here; each layer is constructed once and passed inward so
+ * usecases stay injectable/testable (they never `new` an adapter themselves).
+ */
+
+/** App version from package.json (surfaced by /api/health). */
+const APP_VERSION: string = (() => {
+  try {
+    const require = createRequire(import.meta.url);
+    const pkg = require("../package.json") as { version?: string };
+    return typeof pkg.version === "string" ? pkg.version : "0.0.0";
+  } catch {
+    return "0.0.0";
+  }
+})();
 
 /** Bootstrap the TWSE real-time trading desk backend. */
 async function main(): Promise<void> {
   const app = express();
-  app.use(cors({ origin: config.corsOrigin }));
-  app.use(express.json());
+  // ── middleware: cross-cutting concerns for the public HTTP API ──
+  app.use(corsMiddleware());
+  app.use(jsonBody());
 
-  // Universe directory (cache-first) — load before anything reads it.
+  // ── persistence: load the universe directory (cache-first) before reads ──
   const provider = new UniverseProvider();
   await provider.load(config);
 
@@ -37,26 +57,32 @@ async function main(): Promise<void> {
   const candleStore = new CandleStore();
   const historyCache = new HistoryCache(config.dataDir);
 
-  // One shared feed instance powers both REST and WebSocket.
+  // ── usecase: one shared feed instance powers both REST and WebSocket ──
   const feed = new TwseFeed({ watchlist, provider, viewed, candleStore });
+
+  // ── action: HTTP routes mounted at /api, delegating to usecases ──
   app.use(
     "/api",
-    createApiRouter({ feed, provider, watchlist, candleStore, historyCache }),
+    createApiRouter({
+      feed,
+      provider,
+      watchlist,
+      candleStore,
+      historyCache,
+      version: APP_VERSION,
+    }),
   );
 
-  // Optional bundled SPA (desktop / Electron packaging). When WEB_DIST points at
-  // a Nuxt `generate` output, serve it from this same origin with an SPA history
-  // fallback, so the whole app is reachable from one local server (no separate
-  // web process). Unset in normal dev — Nuxt runs its own dev server then.
-  const webDist = process.env.WEB_DIST;
-  if (webDist && fs.existsSync(webDist)) {
-    const indexHtml = path.join(webDist, "index.html");
-    app.use(express.static(webDist));
-    // Anything that is not an /api route falls back to the SPA entry. (/ws is a
-    // WebSocket upgrade handled below, never an Express GET, so it is unaffected.)
-    app.get(/^(?!\/api(?:\/|$)).*/, (_req, res) => res.sendFile(indexHtml));
-    console.log(`[twse-desk] serving bundled web UI from ${webDist}`);
+  // Optional bundled SPA (desktop / Electron packaging). When WEB_DIST points
+  // at a Nuxt `generate` output, serve it from this same origin with an SPA
+  // history fallback. /ws is a WebSocket upgrade (never an Express GET) so it
+  // is unaffected by the non-/api fallback.
+  if (mountSpaStatic(app)) {
+    console.log(`[twse-desk] serving bundled web UI from ${process.env.WEB_DIST}`);
   }
+
+  // Unified error terminator — any route error funnels here as JSON.
+  app.use(errorHandler());
 
   const server = http.createServer(app);
   const wss = createWsServer(server, feed);

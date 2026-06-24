@@ -49,6 +49,7 @@
       }
     ],
     "win": {
+      "icon": "electron/build/icon.ico",
       "target": [
         {
           "target": "nsis",
@@ -68,6 +69,7 @@
       "include": "electron/build/installer.nsh"
     },
     "mac": {
+      "icon": "electron/build/icon.icns",
       "target": [
         {
           "target": "dmg",
@@ -80,6 +82,7 @@
       "category": "public.app-category.finance"
     },
     "linux": {
+      "icon": "electron/build/icon.png",
       "target": [
         "AppImage",
         "deb"

@@ -12,6 +12,14 @@ export interface PriceLevel {
 
 export type Direction = "up" | "down" | "flat";
 
+/**
+ * Where a Quote's numbers came from (mirror of backend `QuoteSource`):
+ *  - "mis"            — live MIS real-time tick (the primary source)
+ *  - "official-close" — official TWSE OpenAPI daily close, used as a fallback
+ *                       floor when the MIS feed is failing. Absent ⇒ "mis".
+ */
+export type QuoteSource = "mis" | "official-close";
+
 export interface Quote {
   symbol: string;
   exch: string;
@@ -35,6 +43,33 @@ export interface Quote {
   time: string;
   tlong: number;
   updatedAt: number;
+  source?: QuoteSource; // provenance; absent ⇒ live MIS tick
+}
+
+/** Live-feed health snapshot, surfaced by `/api/health` (mirror of backend). */
+export interface FeedHealth {
+  consecutiveFailures: number; // failed polls in a row (0 = healthy)
+  lastTickAt: number; // epoch ms of the last successful MIS poll (0 = never)
+  lastTickAgeMs: number | null; // age of that tick, or null when never
+  lastError: string | null; // last poll error message, if any
+  fallbackActive: boolean; // true while serving official-close fallback
+  activeSymbols: number; // size of the active poll set
+  snapshotCount: number; // symbols with a current snapshot
+  officialCache: {
+    size: number; // rows in the official-close cache
+    ageMs: number | null; // age of cached official data, or null when never
+  };
+}
+
+/** Overall system health, surfaced by `/api/health` (mirror of backend). */
+export interface HealthReport {
+  status: "ok" | "degraded" | "down"; // rolled-up traffic light
+  uptimeMs: number;
+  serverTime: number; // epoch ms
+  version: string;
+  market: MarketStatus;
+  feed: FeedHealth;
+  universe: { count: number; stale: boolean; asOf: number };
 }
 
 export type Session = "pre" | "open" | "closed";

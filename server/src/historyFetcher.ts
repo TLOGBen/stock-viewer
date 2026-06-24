@@ -1,27 +1,20 @@
 import type { Candle } from "./types.js";
+import {
+  createHistoryClient,
+  type HistoryClient,
+} from "./adapters/historyClient.js";
 
 /**
  * Daily K-line backfill from the TWSE STOCK_DAY endpoint (key-free).
  *
- * One request per month for the last `monthsBack` months. Pure parsing helpers
- * (ROC date → epoch, comma strip, row → Candle) are exported for unit tests so
- * the mapping is verifiable without touching the network.
+ * One request per month for the last `monthsBack` months. The network call now
+ * lives in `adapters/historyClient`; the pure parsing helpers (ROC date → epoch,
+ * comma strip, row → Candle) are kept and exported for unit tests so the mapping
+ * is verifiable without touching the network.
  *
  * TPEx (otc) has no reliable equivalent wired here yet, so otc returns [] and
  * never throws — tse is the priority surface for backfill.
  */
-
-/** TWSE STOCK_DAY base URL (rwd afterTrading JSON endpoint). */
-const STOCK_DAY_URL =
-  "https://www.twse.com.tw/rwd/zh/afterTrading/STOCK_DAY";
-
-/** Browser-like UA — the TWSE rwd endpoint rejects empty/script agents. */
-const BROWSER_UA =
-  "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 " +
-  "(KHTML, like Gecko) Chrome/120.0 Safari/537.36";
-
-/** Per-request abort budget — STOCK_DAY can be slow under load. */
-const REQUEST_TIMEOUT_MS = 12_000;
 
 /** Polite spacing between month requests so we do not hammer the endpoint. */
 const INTER_REQUEST_DELAY_MS = 120;
@@ -147,25 +140,16 @@ function monthQueryDate(monthsAgo: number, now: Date): string {
   return `${yyyy}${mm}01`;
 }
 
-/** Fetch + parse a single month of STOCK_DAY rows. Throws on HTTP/parse error. */
-async function fetchMonth(symbol: string, date: string): Promise<Candle[]> {
-  const params = new URLSearchParams({
-    response: "json",
-    stockNo: symbol,
-    date,
-  });
-  const url = `${STOCK_DAY_URL}?${params.toString()}`;
-  const res = await fetch(url, {
-    signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
-    headers: {
-      "User-Agent": BROWSER_UA,
-      Accept: "application/json",
-    },
-  });
-  if (!res.ok) {
-    throw new Error(`STOCK_DAY HTTP ${res.status} for ${symbol}@${date}`);
-  }
-  const json: unknown = await res.json();
+/**
+ * Fetch (via the injectable adapters/historyClient) + parse a single month of
+ * STOCK_DAY rows. Throws on HTTP error (from the client).
+ */
+async function fetchMonth(
+  client: HistoryClient,
+  symbol: string,
+  date: string,
+): Promise<Candle[]> {
+  const json = await client.fetchMonthRaw(symbol, date);
   return parseStockDayResponse(json);
 }
 
@@ -192,6 +176,7 @@ export async function fetchDailyCandles(
   symbol: string,
   exch: Exch,
   monthsBack: number,
+  client: HistoryClient = createHistoryClient(),
 ): Promise<Candle[]> {
   if (exch !== "tse") return [];
 
@@ -203,7 +188,7 @@ export async function fetchDailyCandles(
     if (i > 0) await delay(INTER_REQUEST_DELAY_MS);
     const date = monthQueryDate(i, now);
     try {
-      const monthCandles = await fetchMonth(symbol, date);
+      const monthCandles = await fetchMonth(client, symbol, date);
       batches.push(monthCandles);
     } catch (err) {
       console.error(

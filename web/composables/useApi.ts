@@ -11,6 +11,7 @@ import type {
   Candle,
   KlineInterval,
   SymbolStats,
+  HealthReport,
 } from "~/types";
 
 export function useApi(): {
@@ -25,6 +26,7 @@ export function useApi(): {
   fetchSecurities(): Promise<Security[]>;
   getWatchlist(): Promise<{ symbols: string[]; items: Security[] }>;
   putWatchlist(symbols: string[]): Promise<{ symbols: string[]; items: Security[] }>;
+  fetchHealth(): Promise<HealthReport | null>;
 } {
   const cfg = useRuntimeConfig().public;
   const apiBase = cfg.apiBase;
@@ -203,6 +205,20 @@ export function useApi(): {
     }
   }
 
+  /**
+   * System health snapshot (`/api/health`). Returns null on any failure so the
+   * dashboard can render a disconnected state rather than throwing into the UI.
+   */
+  async function fetchHealth(): Promise<HealthReport | null> {
+    try {
+      const res = await $fetch<HealthReport>(`${apiBase}/api/health`);
+      return res ?? null;
+    } catch (error) {
+      console.error("fetchHealth failed:", error);
+      return null;
+    }
+  }
+
   return {
     apiBase,
     wsUrl,
@@ -215,5 +231,6 @@ export function useApi(): {
     fetchSecurities,
     getWatchlist,
     putWatchlist,
+    fetchHealth,
   };
 }

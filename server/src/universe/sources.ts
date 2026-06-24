@@ -1,21 +1,18 @@
 import { config } from "../config.js";
 import type { Security, SecurityType } from "../types.js";
+import {
+  createUniverseClient,
+  type UniverseClient,
+} from "../adapters/universeClient.js";
 
 /**
- * Universe sources: fetch the two key-free OpenAPI directory endpoints
- * (TWSE STOCK_DAY_ALL + TPEx mainboard daily close) and merge into Security[].
+ * Universe sources: merge the two key-free OpenAPI directory endpoints
+ * (TWSE STOCK_DAY_ALL + TPEx mainboard daily close) into Security[].
  *
- * The row→Security mapping is extracted as pure exported helpers so it is
- * testable without any network access.
+ * The network fetch now lives in `adapters/universeClient`; this module keeps
+ * the pure, network-free row→Security mapping + dedupe (exported for tests) and
+ * orchestrates "fetch raw → normalize".
  */
-
-/** Browser-like UA — the OpenAPI hosts 403 default fetch agents. */
-const BROWSER_UA =
-  "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 " +
-  "(KHTML, like Gecko) Chrome/124.0 Safari/537.36";
-
-/** Per-source fetch timeout. The TPEx body is ~3MB so allow a generous window. */
-const FETCH_TIMEOUT_MS = 15_000;
 
 /** Classify a security by code shape: 00-prefixed → ETF, else stock. */
 export function classifyType(code: string): SecurityType {
@@ -82,53 +79,21 @@ export function normalizeUniverse(
   return [...bySymbol.values()];
 }
 
-/** Fetch one directory endpoint as a JSON array; throws on non-OK/timeout. */
-async function fetchJsonArray(url: string): Promise<unknown> {
-  const res = await fetch(url, {
-    signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
-    headers: { "User-Agent": BROWSER_UA, Accept: "application/json" },
-  });
-  if (!res.ok) {
-    throw new Error(`HTTP ${res.status} for ${url}`);
-  }
-  return (await res.json()) as unknown;
-}
-
 export interface UniverseSourceConfig {
   universeTwseUrl: string;
   universeTpexUrl: string;
 }
 
 /**
- * Fetch BOTH endpoints with per-source try/catch so one failing source still
- * yields the other. Returns the merged, deduped Security[] (TSE wins on clash).
- * Throws only when BOTH sources fail (caller falls back to stale cache).
+ * Fetch BOTH endpoints (via the injectable adapters/universeClient) then run
+ * the pure normalize+dedupe. Returns the merged, deduped Security[] (TSE wins on
+ * clash). The client throws only when BOTH sources fail (caller falls back to
+ * stale cache); `client` is injectable so callers/tests can stub the network.
  */
 export async function fetchUniverse(
   cfg: UniverseSourceConfig = config,
+  client: UniverseClient = createUniverseClient(),
 ): Promise<Security[]> {
-  let twseRows: unknown = [];
-  let tpexRows: unknown = [];
-  let twseOk = false;
-  let tpexOk = false;
-
-  try {
-    twseRows = await fetchJsonArray(cfg.universeTwseUrl);
-    twseOk = true;
-  } catch (err) {
-    console.error("[universe] TWSE source failed:", err);
-  }
-
-  try {
-    tpexRows = await fetchJsonArray(cfg.universeTpexUrl);
-    tpexOk = true;
-  } catch (err) {
-    console.error("[universe] TPEx source failed:", err);
-  }
-
-  if (!twseOk && !tpexOk) {
-    throw new Error("[universe] both sources failed");
-  }
-
+  const { twseRows, tpexRows } = await client.fetchRaw(cfg);
   return normalizeUniverse(twseRows, tpexRows);
 }

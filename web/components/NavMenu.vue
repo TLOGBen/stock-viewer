@@ -17,6 +17,7 @@ const items = computed<readonly NavItem[]>(() => [
   { label: "個股", to: stockTo.value },
   { label: "持倉", to: "/portfolio" },
   { label: "市場", to: "/market" },
+  { label: "健康", to: "/health" },
 ]);
 
 // Active-state lives in the path, not just NuxtLink's exact match — the 個股

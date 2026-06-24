@@ -7,7 +7,7 @@ import {
   rocDateToEpoch,
   stripCommas,
 } from "../src/historyFetcher.js";
-import { rollupDaily } from "../src/historyCache.js";
+import { rollupDaily } from "../src/persistence/historyCache.js";
 
 describe("stripCommas", () => {
   it("removes every thousands separator", () => {

@@ -1,7 +1,15 @@
 import type { Server as HttpServer } from "node:http";
 import { WebSocketServer, WebSocket } from "ws";
-import type { TwseFeed, CandleEvent } from "./twseFeed.js";
-import type { Quote, MarketStatus, ServerMessage } from "./types.js";
+import type { TwseFeed, CandleEvent } from "../usecase/quoteFeed.js";
+import type { Quote, MarketStatus, ServerMessage } from "../domain/index.js";
+
+/**
+ * action/wsServer — the WebSocket entry point. Manages connections on "/ws":
+ * sends a snapshot on connect, broadcasts feed quote/market/candle events,
+ * and drops dead clients via a ping/pong heartbeat. No business logic here —
+ * it only serializes feed events emitted by usecase/quoteFeed onto the wire.
+ * The message contract (snapshot/quote/market/candle) is unchanged.
+ */
 
 /** A WebSocket with a heartbeat liveness flag. */
 interface LiveSocket extends WebSocket {
