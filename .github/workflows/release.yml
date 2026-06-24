@@ -44,3 +44,11 @@ jobs:
           # create the Release and to infer owner/repo for the update feed.
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: npm run release:win
+
+      - name: Publish the release (electron-builder uploads it as a draft)
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ github.ref_name }}
+        run: gh release edit "$TAG" --draft=false --latest
+
