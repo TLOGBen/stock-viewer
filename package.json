@@ -1,18 +1,23 @@
 {
   "name": "twse-trading-desk-desktop",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "private": true,
   "description": "Desktop (Electron) wrapper for the Taiwan real-time trading desk.",
   "main": "electron/main.js",
   "author": "Taiwan Trading Desk",
+  "homepage": "https://github.com/TLOGBen/stock-viewer",
   "scripts": {
     "build:server": "node server/scripts/bundle.mjs",
     "build:web": "cross-env ELECTRON_BUILD=1 npm --prefix web run generate",
     "build:all": "npm run build:server && npm run build:web",
     "electron:dev": "npm run build:all && electron .",
     "dist:win": "npm run build:all && electron-builder --win --x64",
+    "dist:mac": "npm run build:all && electron-builder --mac",
+    "dist:linux": "npm run build:all && electron-builder --linux",
     "dist:dir": "npm run build:all && electron-builder --dir",
-    "release:win": "npm run build:all && electron-builder --win --x64 --publish always"
+    "release:win": "npm run build:all && electron-builder --win --x64 --publish always",
+    "release:mac": "npm run build:all && electron-builder --mac --publish always",
+    "release:linux": "npm run build:all && electron-builder --linux --publish always"
   },
   "dependencies": {
     "electron-updater": "^6.3.9"
@@ -47,7 +52,9 @@
       "target": [
         {
           "target": "nsis",
-          "arch": ["x64"]
+          "arch": [
+            "x64"
+          ]
         }
       ]
     },
@@ -59,6 +66,27 @@
       "createStartMenuShortcut": true,
       "shortcutName": "即時交易台",
       "include": "electron/build/installer.nsh"
+    },
+    "mac": {
+      "target": [
+        {
+          "target": "dmg",
+          "arch": [
+            "arm64",
+            "x64"
+          ]
+        }
+      ],
+      "category": "public.app-category.finance"
+    },
+    "linux": {
+      "target": [
+        "AppImage",
+        "deb"
+      ],
+      "category": "Office",
+      "synopsis": "即時台股交易台 — Taiwan real-time trading desk",
+      "maintainer": "Taiwan Trading Desk <noreply@users.noreply.github.com>"
     }
   }
 }

@@ -1,12 +1,21 @@
 name: Release Desktop App
 
-# Build the Windows desktop installer in the cloud (windows-latest → native,
-# no wine needed) and publish it to a GitHub Release. The published assets
-# (Setup .exe, latest.yml, .blockmap) are what the app's auto-updater reads.
+# Build the desktop app for Windows / macOS / Linux in the cloud and publish
+# the installers to a single GitHub Release. The published feed files
+# (latest*.yml + blockmaps) are what electron-updater reads for auto-update.
 #
-# Trigger: push a version tag, e.g.
-#   git tag v1.0.1 && git push origin v1.0.1
-# or run manually from the Actions tab (workflow_dispatch).
+# Public repo → GitHub-hosted runners (incl. macOS) are free with no minute cap.
+#
+# Per-platform notes:
+#   - Windows: nsis installer; auto-update works.
+#   - Linux:   AppImage + deb; AppImage auto-update works.
+#   - macOS:   dmg, UNSIGNED — Gatekeeper will warn ("unidentified developer";
+#              right-click → Open, or `xattr -cr <app>`), and auto-update does
+#              NOT work without an Apple Developer signature. Intended for
+#              personal use until signing/notarization is set up.
+#
+# Trigger: push a version tag (git tag v1.0.2 && git push origin v1.0.2),
+# or run manually from the Actions tab.
 
 on:
   push:
@@ -18,8 +27,18 @@ permissions:
   contents: write # required for electron-builder to create the GitHub Release
 
 jobs:
-  release-windows:
-    runs-on: windows-latest
+  release:
+    strategy:
+      fail-fast: false # one platform failing must not cancel the others
+      matrix:
+        include:
+          - os: windows-latest
+            script: release:win
+          - os: macos-latest
+            script: release:mac
+          - os: ubuntu-latest
+            script: release:linux
+    runs-on: ${{ matrix.os }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -43,22 +62,24 @@ jobs:
           # Provided automatically by Actions; electron-builder uses it both to
           # create the Release and to infer owner/repo for the update feed.
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: npm run release:win
+          # No Apple/Windows signing certs configured — don't let electron-builder
+          # hunt for one and fail; build unsigned (see header note for macOS).
+          CSC_IDENTITY_AUTO_DISCOVERY: false
+        run: npm run ${{ matrix.script }}
 
       - name: Assert the auto-update feed was generated
         shell: bash
-        # The update feed (app-update.yml) is what electron-updater reads at
-        # runtime to find new releases. It is only emitted when electron-builder
-        # can resolve the GitHub repo (here, inferred from the checkout's git
-        # remote). Fail loudly if it is missing instead of shipping an installer
-        # whose auto-update silently never works.
+        # app-update.yml is what electron-updater reads at runtime to find new
+        # releases. electron-builder only emits it once it can resolve the GitHub
+        # repo (inferred from the checkout's git remote). Fail loudly if missing
+        # rather than shipping a build whose auto-update silently never works.
         run: |
-          f="dist-electron/win-unpacked/resources/app-update.yml"
-          if [ ! -f "$f" ]; then
-            echo "::error::$f missing — auto-update feed was not generated; the release would not be updatable."
+          f=$(find dist-electron -name app-update.yml | head -1)
+          if [ -z "$f" ]; then
+            echo "::error::app-update.yml missing on ${{ matrix.os }} — auto-update feed was not generated."
             exit 1
           fi
-          echo "auto-update feed OK:"; cat "$f"
+          echo "auto-update feed OK ($f):"; cat "$f"
 
       - name: Publish the release (electron-builder uploads it as a draft)
         shell: bash
@@ -66,4 +87,3 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TAG: ${{ github.ref_name }}
         run: gh release edit "$TAG" --draft=false --latest
-

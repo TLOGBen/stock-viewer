@@ -16,14 +16,15 @@
 
 ---
 
-## 桌面版 App（Windows）
+## 桌面版 App（Windows / macOS / Linux）
 
-不會開網站也能用——直接下載安裝檔，雙擊就是一個獨立視窗的 App。
+不會開網站也能用——到 [**Releases**](https://github.com/TLOGBen/stock-viewer/releases/latest) 下載對應檔案，雙擊就是一個獨立視窗的 App。
 
-1. 到 [**Releases**](https://github.com/TLOGBen/stock-viewer/releases/latest) 下載 `即時交易台 Setup x.y.z.exe`
-2. 雙擊安裝（桌面與開始選單會建立捷徑）
-3. 安裝時若 Windows 跳「未知發行者」，點「更多資訊 → 仍要執行」即可（程式未做數位簽章）
-4. 有新版時 App 會自動偵測、背景下載並提示重啟更新
+| 系統 | 檔案 | 安裝 / 開啟 |
+|---|---|---|
+| **Windows** | `即時交易台 Setup x.y.z.exe` | 雙擊安裝。跳「未知發行者」→ 更多資訊 → 仍要執行（未簽章）。**支援自動更新** |
+| **Linux** | `即時交易台-x.y.z.AppImage` 或 `.deb` | AppImage：`chmod +x` 後雙擊；deb：`sudo dpkg -i`。AppImage **支援自動更新** |
+| **macOS** | `即時交易台-x.y.z.dmg` | 拖進 Applications。**未簽章**：首次右鍵→開啟，或 `xattr -cr /Applications/即時交易台.app`。Mac 版**無自動更新**（需 Apple 簽章） |
 
 > App 需要連網（即時報價來自 TWSE 線上 API）。打包與發版細節見 [`electron/README.md`](electron/README.md)。
 
