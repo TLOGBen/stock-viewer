@@ -1,0 +1,26 @@
+[
+{
+"Date": "1150624",
+"Code": "1513",
+"Name": "中興電",
+"PEratio": "22.48",
+"DividendYield": "3.24",
+"PBratio": "4.25"
+},
+{
+"Date": "1150624",
+"Code": "2317",
+"Name": "鴻海",
+"PEratio": "18.18",
+"DividendYield": "2.81",
+"PBratio": "2.01"
+},
+{
+"Date": "1150624",
+"Code": "2330",
+"Name": "台積電",
+"PEratio": "32.13",
+"DividendYield": "0.92",
+"PBratio": "10.52"
+}
+]

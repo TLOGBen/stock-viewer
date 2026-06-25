@@ -16,6 +16,8 @@
   "devDependencies": {
     "@types/d3": "^7.4.3",
     "@types/node": "^22.10.0",
+    "@vue/test-utils": "^2.4.11",
+    "happy-dom": "^15.11.7",
     "nuxt": "^3.15.0",
     "typescript": "^5.7.2",
     "vitest": "^2.1.8",

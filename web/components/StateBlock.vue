@@ -2,40 +2,39 @@
 /**
  * Presentational block for an async resource's non-success states (PQ-4):
  * loading (spinner + 載入中…), error (載入失敗 + retry button), empty (無資料),
- * and a disconnected variant. Centered, muted styling. Renders nothing on
- * "idle" or "success" (the caller shows real content then).
+ * accumulating (歷史累積中（n 期）— cold-start series), and a disconnected
+ * variant. Centered, muted styling.
+ *
+ * On "success" the default slot is rendered (the caller's real content); on
+ * "idle" nothing is shown. Callers may either guard with `v-if` and only mount
+ * this for non-success states (legacy: Heatmap / VolumeProfile), or wrap their
+ * content in the default slot and let StateBlock switch (個股頁 blocks).
  *
  * Emits "retry" from the error/disconnected retry button.
  */
 import { computed } from "vue";
 import type { ResourceStatus } from "~/types";
+import { stateBlockText, isStateLine } from "~/utils/stockSignals";
 
 type BlockStatus = ResourceStatus | "disconnected";
 
 const props = defineProps<{
   status: BlockStatus;
   message?: string;
+  /** Accumulated-period count, surfaced in the「歷史累積中（n 期）」line. */
+  n?: number | null;
 }>();
 
 const emit = defineEmits<{ retry: [] }>();
 
-const visible = computed(
-  () => props.status !== "idle" && props.status !== "success",
+const showSlot = computed(() => props.status === "success");
+const showState = computed(() =>
+  props.status === "disconnected" ? true : isStateLine(props.status),
 );
 
 const defaultMessage = computed(() => {
-  switch (props.status) {
-    case "loading":
-      return "載入中…";
-    case "error":
-      return "載入失敗";
-    case "empty":
-      return "無資料";
-    case "disconnected":
-      return "連線中斷";
-    default:
-      return "";
-  }
+  if (props.status === "disconnected") return "連線中斷";
+  return stateBlockText(props.status, props.n);
 });
 
 const text = computed(() => props.message ?? defaultMessage.value);
@@ -46,8 +45,9 @@ const ariaLive = computed(() => (props.status === "error" ? "assertive" : "polit
 </script>
 
 <template>
+  <slot v-if="showSlot" />
   <div
-    v-if="visible"
+    v-else-if="showState"
     class="state-block"
     :class="`state-${props.status}`"
     role="status"
@@ -55,7 +55,15 @@ const ariaLive = computed(() => (props.status === "error" ? "assertive" : "polit
   >
     <span v-if="props.status === 'loading'" class="spinner" aria-hidden="true" />
     <span v-else class="state-glyph" aria-hidden="true">
-      {{ props.status === "error" ? "⚠" : props.status === "disconnected" ? "⚡" : "∅" }}
+      {{
+        props.status === "error"
+          ? "⚠"
+          : props.status === "disconnected"
+            ? "⚡"
+            : props.status === "accumulating"
+              ? "⋯"
+              : "∅"
+      }}
     </span>
 
     <p class="state-text">{{ text }}</p>
@@ -105,6 +113,12 @@ const ariaLive = computed(() => (props.status === "error" ? "assertive" : "polit
 
 .state-disconnected {
   color: var(--warn);
+}
+
+/* cold-start series window — muted, not an error */
+.state-accumulating {
+  color: var(--text-3);
+  opacity: 0.85;
 }
 
 .state-retry {

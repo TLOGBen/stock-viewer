@@ -12,6 +12,15 @@ import type {
   KlineInterval,
   SymbolStats,
   HealthReport,
+  CompanyView,
+  RevenueView,
+  FinancialsView,
+  DividendsView,
+  InstitutionalView,
+  DisclosuresView,
+  MarginView,
+  ValuationView,
+  HealthLights,
 } from "~/types";
 
 export function useApi(): {
@@ -27,6 +36,15 @@ export function useApi(): {
   getWatchlist(): Promise<{ symbols: string[]; items: Security[] }>;
   putWatchlist(symbols: string[]): Promise<{ symbols: string[]; items: Security[] }>;
   fetchHealth(): Promise<HealthReport | null>;
+  fetchCompany(symbol: string): Promise<CompanyView | null>;
+  fetchRevenue(symbol: string): Promise<RevenueView | null>;
+  fetchFinancials(symbol: string): Promise<FinancialsView | null>;
+  fetchDividends(symbol: string): Promise<DividendsView | null>;
+  fetchInstitutional(symbol: string): Promise<InstitutionalView | null>;
+  fetchMargin(symbol: string): Promise<MarginView | null>;
+  fetchValuation(symbol: string): Promise<ValuationView | null>;
+  fetchHealthLights(symbol: string): Promise<HealthLights | null>;
+  fetchDisclosures(symbol: string): Promise<DisclosuresView | null>;
 } {
   const cfg = useRuntimeConfig().public;
   const apiBase = cfg.apiBase;
@@ -219,6 +237,68 @@ export function useApi(): {
     }
   }
 
+  /**
+   * Read-only 個股頁 fetcher factory. Every stock-page endpoint shares the same
+   * never-throw shape: validate the symbol, GET `/api/<path>/<symbol>`, and
+   * return the parsed view (or `null` on any failure — empty symbol, network
+   * error, or a 502 from the backend). The composables layer maps `null` to an
+   * `error` ResourceStatus so the UI degrades gracefully (never throws).
+   */
+  function stockPageFetcher<T>(
+    path: string,
+    tag: string,
+  ): (symbol: string) => Promise<T | null> {
+    return async (symbol: string): Promise<T | null> => {
+      if (!symbol) return null;
+      try {
+        const res = await $fetch<T>(
+          `${apiBase}/api/${path}/${encodeURIComponent(symbol)}`,
+        );
+        return res ?? null;
+      } catch (error) {
+        console.error(`${tag} failed:`, error);
+        return null;
+      }
+    };
+  }
+
+  /** 公司基本資料 (`/api/company`). null on any failure. */
+  const fetchCompany = stockPageFetcher<CompanyView>("company", "fetchCompany");
+  /** 月營收序列 (`/api/revenue`). null on any failure. */
+  const fetchRevenue = stockPageFetcher<RevenueView>("revenue", "fetchRevenue");
+  /** 損益/資產負債 + ROE/負債比 (`/api/financials`). null on any failure. */
+  const fetchFinancials = stockPageFetcher<FinancialsView>(
+    "financials",
+    "fetchFinancials",
+  );
+  /** 股利/除權息 (`/api/dividends`). null on any failure. */
+  const fetchDividends = stockPageFetcher<DividendsView>(
+    "dividends",
+    "fetchDividends",
+  );
+  /** 三大法人 (`/api/institutional`). null on any failure. */
+  const fetchInstitutional = stockPageFetcher<InstitutionalView>(
+    "institutional",
+    "fetchInstitutional",
+  );
+  /** 融資融券 (`/api/margin`). null on any failure. */
+  const fetchMargin = stockPageFetcher<MarginView>("margin", "fetchMargin");
+  /** PE/PB 河流圖 band (`/api/valuation`). null on any failure. */
+  const fetchValuation = stockPageFetcher<ValuationView>(
+    "valuation",
+    "fetchValuation",
+  );
+  /** 四燈號健診 (`/api/health-lights`). null on any failure. */
+  const fetchHealthLights = stockPageFetcher<HealthLights>(
+    "health-lights",
+    "fetchHealthLights",
+  );
+  /** 個股重大訊息 (`/api/disclosures`). null on any failure. */
+  const fetchDisclosures = stockPageFetcher<DisclosuresView>(
+    "disclosures",
+    "fetchDisclosures",
+  );
+
   return {
     apiBase,
     wsUrl,
@@ -232,5 +312,14 @@ export function useApi(): {
     getWatchlist,
     putWatchlist,
     fetchHealth,
+    fetchCompany,
+    fetchRevenue,
+    fetchFinancials,
+    fetchDividends,
+    fetchInstitutional,
+    fetchMargin,
+    fetchValuation,
+    fetchHealthLights,
+    fetchDisclosures,
   };
 }

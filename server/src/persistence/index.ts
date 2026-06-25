@@ -15,3 +15,7 @@ export {
 } from "./universeCache.js";
 export { OfficialCloseCache, ONE_DAY_MS } from "./officialCloseCache.js";
 export type { OfficialFallbackConfig } from "./officialCloseCache.js";
+export { BulkByDateCache, BACKFILL_THROTTLE_MS } from "./bulkByDateCache.js";
+export type { BulkByDateFetcher } from "./bulkByDateCache.js";
+export { SnapshotSeriesCache } from "./snapshotSeriesCache.js";
+export type { LatestItemFetcher } from "./snapshotSeriesCache.js";

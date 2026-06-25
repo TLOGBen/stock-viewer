@@ -36,3 +36,59 @@ export {
   type FeedHealthSource,
   type UniverseHealthSource,
 } from "./getHealth.js";
+
+// ── 個股頁 (stock-page) usecases — injected stock-page deps ──
+export {
+  type StockPageDeps,
+  type InstitutionalCache,
+  type MarginCache,
+  type ValuationCache,
+  type ExRightCache,
+  type RevenueCache,
+  type CompanyFetcher,
+  type FinancialsByVariantFetcher,
+  type BalanceByVariantFetcher,
+  type DividendSeriesFetcher,
+  DEFAULT_RECENT_DAYS,
+  VALUATION_WINDOW_DAYS,
+  FINANCIAL_VARIANTS,
+} from "./stockPageDeps.js";
+export { getCompany, type GetCompanyDeps, type CompanyView } from "./getCompany.js";
+export { getRevenue, type GetRevenueDeps, type RevenueView } from "./getRevenue.js";
+export {
+  getFinancials,
+  type GetFinancialsDeps,
+  type FinancialsView,
+} from "./getFinancials.js";
+export {
+  getDividends,
+  type GetDividendsDeps,
+  type DividendsView,
+} from "./getDividends.js";
+export {
+  getInstitutional,
+  type GetInstitutionalDeps,
+  type InstitutionalDay,
+  type InstitutionalView,
+} from "./getInstitutional.js";
+export {
+  getMargin,
+  type GetMarginDeps,
+  type MarginDay,
+  type MarginView,
+} from "./getMargin.js";
+export {
+  getValuation,
+  type GetValuationDeps,
+  type ValuationDay,
+  type ValuationView,
+} from "./getValuation.js";
+export {
+  getHealthLights,
+  type GetHealthLightsDeps,
+} from "./getHealthLights.js";
+export {
+  getDisclosures,
+  type GetDisclosuresDeps,
+  type DisclosuresView,
+} from "./getDisclosures.js";

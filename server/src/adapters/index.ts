@@ -25,3 +25,16 @@ export {
   createHistoryClient,
   type HistoryClient,
 } from "./historyClient.js";
+export {
+  createFundamentalsClient,
+  type FundamentalsClient,
+} from "./fundamentalsClient.js";
+export {
+  createChipsClient,
+  type ChipsClient,
+  type RwdResponse,
+} from "./chipsClient.js";
+export {
+  createValuationClient,
+  type ValuationClient,
+} from "./valuationClient.js";

@@ -1,4 +1,4 @@
-import { Router } from "express";
+import { Router, type Response } from "express";
 import { config } from "../config.js";
 import type { TwseFeed } from "../usecase/quoteFeed.js";
 import type { UniverseProvider } from "../usecase/universeService.js";
@@ -6,6 +6,7 @@ import type { WatchlistStore } from "../persistence/index.js";
 import type { CandleStore } from "../persistence/index.js";
 import type { HistoryCache } from "../persistence/index.js";
 import type { KlineInterval } from "../domain/index.js";
+import { industryVariant } from "../domain/index.js";
 import { validateSymbol } from "../middleware/index.js";
 import {
   getKlines,
@@ -16,6 +17,16 @@ import {
   unknownSymbols,
   getMarketStats,
   getHealth,
+  getCompany,
+  getRevenue,
+  getFinancials,
+  getDividends,
+  getInstitutional,
+  getMargin,
+  getValuation,
+  getHealthLights,
+  getDisclosures,
+  type StockPageDeps,
 } from "../usecase/index.js";
 
 /**
@@ -59,6 +70,13 @@ export interface ApiDeps {
   historyCache: HistoryCache;
   /** App version surfaced by /health (defaults to config.version-less fallback). */
   version?: string;
+  /**
+   * 個股頁 (stock-page) injected cache surface. Optional so the existing 6-field
+   * ApiDeps contract is untouched (REQ-014); when absent the stock-page routes
+   * are simply not mounted. The composition root's `buildStockPageDeps()` wires
+   * adapters→caches→provider into this sub-object.
+   */
+  stockPageDeps?: StockPageDeps;
 }
 
 export function createApiRouter(deps: ApiDeps): Router {
@@ -216,5 +234,151 @@ export function createApiRouter(deps: ApiDeps): Router {
     res.json(report);
   });
 
+  // ───────────────────────── 個股頁 (stock-page) ─────────────────────────
+  // Mounted only when the optional stock-page deps were injected. Each route
+  // validates the symbol (path-traversal guard), delegates to one usecase, and
+  // serializes the (never-throwing) view; an unexpected error still funnels to a
+  // uniform 502. The usecases themselves degrade to coverage:false rather than
+  // throwing, so the 502 path is a true belt-and-braces safety net.
+  const sp = deps.stockPageDeps;
+  if (sp != null) {
+    mountStockPageRoutes(router, sp);
+  }
+
   return router;
+}
+
+/**
+ * Wire the nine read-only 個股頁 routes onto an existing router. Split out so
+ * `createApiRouter` stays readable; every handler is the same validate→delegate→
+ * serialize shape with a try/catch 502 net.
+ */
+function mountStockPageRoutes(router: Router, sp: StockPageDeps): void {
+  /** Shared 502 reporter for a failed stock-page route. */
+  function fail(res: Response, tag: string, symbol: string, err: unknown): void {
+    console.error(`[${tag}] ${symbol} failed:`, err);
+    res.status(502).json({ error: `Failed to load ${tag} data` });
+  }
+
+  router.get("/company/:symbol", validateSymbol(), (req, res) => {
+    const symbol = req.params["symbol"] ?? "";
+    void (async () => {
+      try {
+        res.json(await getCompany({ company: sp.company }, symbol));
+      } catch (err) {
+        fail(res, "company", symbol, err);
+      }
+    })();
+  });
+
+  router.get("/revenue/:symbol", validateSymbol(), (req, res) => {
+    const symbol = req.params["symbol"] ?? "";
+    void (async () => {
+      try {
+        res.json(await getRevenue({ revenue: sp.revenue }, symbol));
+      } catch (err) {
+        fail(res, "revenue", symbol, err);
+      }
+    })();
+  });
+
+  router.get("/financials/:symbol", validateSymbol(), (req, res) => {
+    const symbol = req.params["symbol"] ?? "";
+    void (async () => {
+      try {
+        // The 損益表 sub-variant cannot be told from the 產業別 code alone, so
+        // getFinancials only needs the two-way 一般/金融保險 split here. Resolve it
+        // from the company profile (absent → default to 一般 `ci`).
+        let code = "";
+        try {
+          const profile = await sp.company(symbol);
+          code = profile?.industryCode ?? "";
+        } catch (err) {
+          console.error(`[financials] ${symbol} industry probe failed:`, err);
+        }
+        res.json(
+          await getFinancials(
+            { financials: sp.financials, balance: sp.balance },
+            symbol,
+            industryVariant(code),
+          ),
+        );
+      } catch (err) {
+        fail(res, "financials", symbol, err);
+      }
+    })();
+  });
+
+  router.get("/dividends/:symbol", validateSymbol(), (req, res) => {
+    const symbol = req.params["symbol"] ?? "";
+    void (async () => {
+      try {
+        res.json(
+          await getDividends(
+            { dividends: sp.dividends, exRight: sp.exRight },
+            symbol,
+          ),
+        );
+      } catch (err) {
+        fail(res, "dividends", symbol, err);
+      }
+    })();
+  });
+
+  router.get("/institutional/:symbol", validateSymbol(), (req, res) => {
+    const symbol = req.params["symbol"] ?? "";
+    void (async () => {
+      try {
+        res.json(
+          await getInstitutional({ institutional: sp.institutional }, symbol),
+        );
+      } catch (err) {
+        fail(res, "institutional", symbol, err);
+      }
+    })();
+  });
+
+  router.get("/margin/:symbol", validateSymbol(), (req, res) => {
+    const symbol = req.params["symbol"] ?? "";
+    void (async () => {
+      try {
+        res.json(await getMargin({ margin: sp.margin }, symbol));
+      } catch (err) {
+        fail(res, "margin", symbol, err);
+      }
+    })();
+  });
+
+  router.get("/valuation/:symbol", validateSymbol(), (req, res) => {
+    const symbol = req.params["symbol"] ?? "";
+    void (async () => {
+      try {
+        res.json(await getValuation({ valuation: sp.valuation }, symbol));
+      } catch (err) {
+        fail(res, "valuation", symbol, err);
+      }
+    })();
+  });
+
+  router.get("/health-lights/:symbol", validateSymbol(), (req, res) => {
+    const symbol = req.params["symbol"] ?? "";
+    void (async () => {
+      try {
+        res.json(await getHealthLights(sp, symbol));
+      } catch (err) {
+        fail(res, "health-lights", symbol, err);
+      }
+    })();
+  });
+
+  router.get("/disclosures/:symbol", validateSymbol(), (req, res) => {
+    const symbol = req.params["symbol"] ?? "";
+    void (async () => {
+      try {
+        res.json(await getDisclosures({ disclosures: sp.disclosures }, symbol));
+      } catch (err) {
+        fail(res, "disclosures", symbol, err);
+      }
+    })();
+  });
 }

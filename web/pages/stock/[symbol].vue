@@ -4,6 +4,8 @@
 // so the shared WS feed, chart, and order wiring all converge on it. The
 // detailed DetailPanel embeds 五檔深度 + 量價分佈; a side column carries the order
 // book + ticket so the user can analyze and trade the deep-linked stock.
+import { useHealthLights } from "~/composables/useStockResource";
+
 const route = useRoute();
 const md = useMarketData();
 
@@ -11,6 +13,12 @@ const md = useMarketData();
 function symbolFrom(param: string | string[] | undefined): string {
   return Array.isArray(param) ? (param[0] ?? "") : (param ?? "");
 }
+
+// The focused symbol drives every per-symbol research resource. md.selected is
+// the single source of truth (mutated by select() below), so the 四燈號健診 hero
+// and the info tabs all converge on the same symbol as the WS feed + chart.
+const symbol = md.selected;
+const health = useHealthLights(symbol);
 
 // Focus the singleton on the route symbol. SSR-safe: select() only mutates the
 // shared ref; the backend tolerates unknown/empty symbols. immediate covers the
@@ -28,7 +36,9 @@ watch(
 <template>
   <div class="stock-grid">
     <section class="col col-main">
+      <HealthLights :status="health.status.value" :data="health.data.value" @retry="health.reload" />
       <DetailPanel detailed />
+      <StockInfoTabs :symbol="symbol" />
     </section>
 
     <aside class="col col-side">

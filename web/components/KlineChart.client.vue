@@ -13,7 +13,7 @@
  *
  * Every KLineChart call is guarded — `chart` is null until the async init lands.
  */
-import { ref, watch, onMounted, onBeforeUnmount, toRef } from "vue";
+import { ref, computed, watch, onMounted, onBeforeUnmount, toRef } from "vue";
 import type { Candle, KlineInterval, KlineChartType, IndicatorSpec } from "~/types";
 import { themeToKlineStyles } from "~/utils/klineTheme";
 import {
@@ -59,7 +59,14 @@ const indicatorPanes = new Map<string, string>();
 
 const symbolRef = toRef(props, "symbol");
 const intervalRef = toRef(props, "interval");
-const { candles } = useKlines(symbolRef, intervalRef);
+const { candles, status } = useKlines(symbolRef, intervalRef);
+
+// OTC 無日K 降級 (REQ-013 / TASK-tech-01): TWSE RWD 日K only covers 上市 (listed)
+// stocks, so an 上櫃 (OTC) symbol resolves to an empty series. Rather than draw
+// an empty/broken chart, overlay a mono「無日K資料（上櫃）」line. The line shows
+// only for a genuinely empty result — loading/error keep the chart surface so a
+// late fold can still paint, and success hides it entirely.
+const showEmptyKline = computed(() => status.value === "empty");
 
 /** Apply chartType: HA transforms the data, "line" hides the area fill. */
 function dataForChart(): Candle[] {
@@ -252,13 +259,36 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <div ref="containerRef" class="kline-chart" />
+  <div class="kline-wrap">
+    <div ref="containerRef" class="kline-chart" />
+    <p v-if="showEmptyKline" class="kline-empty empty mono">無日K資料（上櫃）</p>
+  </div>
 </template>
 
 <style scoped>
+.kline-wrap {
+  position: relative;
+}
+
 .kline-chart {
   width: 100%;
   height: 360px;
   min-height: 240px;
+}
+
+/* OTC 無日K 降級: centered mono line over the (empty) chart surface, never a
+   broken/blank chart. Uses the shared `.empty` idiom + mono density. */
+.kline-empty {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0;
+  text-align: center;
+  font-size: 12px;
+  letter-spacing: 0.08em;
+  color: var(--text-2);
+  pointer-events: none;
 }
 </style>
