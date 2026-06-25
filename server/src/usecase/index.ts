@@ -43,6 +43,7 @@ export {
   type InstitutionalCache,
   type MarginCache,
   type ValuationCache,
+  type ValuationSeriesCache,
   type ExRightCache,
   type RevenueCache,
   type CompanyFetcher,
@@ -51,6 +52,7 @@ export {
   type DividendSeriesFetcher,
   DEFAULT_RECENT_DAYS,
   VALUATION_WINDOW_DAYS,
+  VALUATION_SERIES_CAP,
   FINANCIAL_VARIANTS,
 } from "./stockPageDeps.js";
 export { getCompany, type GetCompanyDeps, type CompanyView } from "./getCompany.js";

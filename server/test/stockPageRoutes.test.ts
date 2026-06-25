@@ -133,6 +133,10 @@ function makeStockPageDeps(): StockPageDeps {
     institutional: dayCache(flow1513) as unknown as StockPageDeps["institutional"],
     margin: dayCache(margin1513) as unknown as StockPageDeps["margin"],
     valuation: dayCache(vp1513) as unknown as StockPageDeps["valuation"],
+    valuationSeries: {
+      upsertLatest: async () => [vp1513],
+      getSeries: async () => [vp1513],
+    } as unknown as StockPageDeps["valuationSeries"],
     exRight: dayCache(ex1513) as unknown as StockPageDeps["exRight"],
     disclosures: dayCache([disc1513]) as unknown as StockPageDeps["disclosures"],
     history: {

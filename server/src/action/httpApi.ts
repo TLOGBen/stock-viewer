@@ -353,7 +353,7 @@ function mountStockPageRoutes(router: Router, sp: StockPageDeps): void {
     const symbol = req.params["symbol"] ?? "";
     void (async () => {
       try {
-        res.json(await getValuation({ valuation: sp.valuation }, symbol));
+        res.json(await getValuation({ valuationSeries: sp.valuationSeries }, symbol));
       } catch (err) {
         fail(res, "valuation", symbol, err);
       }

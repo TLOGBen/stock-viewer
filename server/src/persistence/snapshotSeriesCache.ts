@@ -164,4 +164,29 @@ export class SnapshotSeriesCache<T> {
     await this.write(symbol, { asOf: Date.now(), items: next });
     return next;
   }
+
+  /**
+   * Fold a WHOLE historical series for `symbol` into the persisted series and
+   * persist atomically. Each item is upserted via the pure domain `upsertSeries`
+   * (de-dup by key, cap from the front) over the existing on-disk series, so a
+   * re-run merges rather than blindly overwrites — same key → latest write wins
+   * → idempotent. Used by the build-time backfill seed; runtime upsertLatest is
+   * unchanged. Never throws: the path-traversal guard's throw is caught here and
+   * surfaces as the unchanged existing series (same contract as the rest of the
+   * class). Returns the resulting series.
+   */
+  async seedSeries(symbol: string, items: readonly T[]): Promise<T[]> {
+    try {
+      const existing = await this.getSeries(symbol);
+      let next = existing;
+      for (const item of items) {
+        next = upsertSeries(next, item, this.keyFn, this.cap);
+      }
+      await this.write(symbol, { asOf: Date.now(), items: next });
+      return next;
+    } catch (err) {
+      console.error(`[snapshotSeriesCache] seedSeries ${symbol} failed:`, err);
+      return await this.getSeries(symbol);
+    }
+  }
 }

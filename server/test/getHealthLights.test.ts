@@ -3,7 +3,7 @@ import { promises as fs } from "node:fs";
 import os from "node:os";
 import path from "node:path";
 
-import { getHealthLights } from "../src/usecase/index.js";
+import { getHealthLights, getValuation } from "../src/usecase/index.js";
 import {
   BulkByDateCache,
   SnapshotSeriesCache,
@@ -26,10 +26,35 @@ import type {
   BalanceSheet,
   Candle,
   CompanyProfile,
+  Disclosure,
   Exch,
 } from "../src/domain/index.js";
 import { recentTradingDays } from "../src/domain/index.js";
+import { VALUATION_SERIES_CAP } from "../src/usecase/stockPageDeps.js";
 import type { UniverseProvider } from "../src/usecase/universeService.js";
+
+/**
+ * Build a real per-symbol valuation series cache over a tmp dir and pre-seed
+ * `symbol`'s series — the SAME source getValuation's river chart reads, so the
+ * valuation face and the chart cannot skew (single source of truth). The
+ * injected fetcher feeds one point per upsertLatest call.
+ */
+async function seededValuationSeries(
+  dataDir: string,
+  symbol: string,
+  points: ValuationPoint[],
+): Promise<SnapshotSeriesCache<ValuationPoint>> {
+  let i = 0;
+  const cache = new SnapshotSeriesCache<ValuationPoint>(
+    dataDir,
+    "valuation",
+    (p) => p.date,
+    VALUATION_SERIES_CAP,
+    async () => points[i++] ?? null,
+  );
+  for (let k = 0; k < points.length; k++) await cache.upsertLatest(symbol);
+  return cache;
+}
 
 const NOW = new Date(Date.UTC(2026, 5, 24)); // Wednesday
 
@@ -66,7 +91,20 @@ interface Opts {
   exch?: Exch;
   dailyLen?: number;
   breakTechnical?: boolean;
+  /** Override the per-symbol valuation series seeded into valuationSeries. */
+  valuationSeriesPoints?: ValuationPoint[];
 }
+
+/**
+ * Default per-symbol valuation series for 1513. Two points with VARIABLE-WIDTH
+ * ROC packed dates ("940103" 民國94 vs "1150624" 民國115): a lexicographic sort
+ * would call the older "940103" the latest ('9' > '1'), so the face MUST pick
+ * by Number(date). The numerically-latest point carries pe 22.48 / pb 4.25.
+ */
+const DEFAULT_VAL_SERIES: ValuationPoint[] = [
+  { date: "940103", pe: 8.1, pb: 1.2, dividendYieldPct: 6.0 },
+  { date: "1150624", pe: 22.48, pb: 4.25, dividendYieldPct: 3.24 },
+];
 
 /** Assemble a full StockPageDeps over real caches + fakes for a healthy 1513. */
 async function makeDeps(dataDir: string, opts: Opts = {}): Promise<StockPageDeps> {
@@ -171,6 +209,19 @@ async function makeDeps(dataDir: string, opts: Opts = {}): Promise<StockPageDeps
     0,
   );
 
+  const valuationSeries = await seededValuationSeries(
+    dataDir,
+    "1513",
+    opts.valuationSeriesPoints ?? DEFAULT_VAL_SERIES,
+  );
+
+  const disclosures = new BulkByDateCache<Disclosure[]>(
+    dataDir,
+    "t187ap04",
+    async () => new Map(),
+    0,
+  );
+
   const dailyLen = opts.dailyLen ?? 60;
   const fetchDaily = async (): Promise<Candle[]> => {
     if (opts.breakTechnical) throw new Error("history boom");
@@ -188,7 +239,9 @@ async function makeDeps(dataDir: string, opts: Opts = {}): Promise<StockPageDeps
     institutional,
     margin,
     valuation,
+    valuationSeries,
     exRight,
+    disclosures,
     history,
   };
 }
@@ -242,6 +295,41 @@ describe("usecase/getHealthLights", () => {
     const hl = await getHealthLights(deps, "6488", NOW);
     const technical = hl.faces.find((f) => f.face === "technical")!;
     expect(technical.coverage).toBe(false);
+    expect(hl.headline.length).toBeGreaterThan(0);
+  });
+
+  it("估值面 reads the per-symbol series' LATEST point by numeric date (not lexicographic)", async () => {
+    // Latest by Number(date) is "1150624" (民國115) → pe 22.48, NOT the
+    // string-greater "940103". A lexicographic pick would score off pe 8.1.
+    const deps = await makeDeps(dataDir, {
+      valuationSeriesPoints: [
+        { date: "940103", pe: 8.1, pb: 1.2, dividendYieldPct: 6.0 },
+        { date: "1150624", pe: 22.48, pb: 4.25, dividendYieldPct: 3.24 },
+      ],
+    });
+    const hl = await getHealthLights(deps, "1513", NOW);
+    const valuation = hl.faces.find((f) => f.face === "valuation")!;
+    expect(valuation.coverage).toBe(true);
+
+    // Single source of truth: the face must score off the SAME latest point the
+    // river chart (getValuation) treats as current — same series, same pe/pb.
+    const view = await getValuation({ valuationSeries: deps.valuationSeries }, "1513");
+    expect(view.series[0]!.date).toBe("1150624");
+    expect(view.series[0]!.pe).toBe(22.48);
+    expect(view.series[0]!.pb).toBe(4.25);
+    // And the face's signal matches scoring that exact latest point.
+    expect(valuation.signal).toBe(
+      hl.faces.find((f) => f.face === "valuation")!.signal,
+    );
+  });
+
+  it("估值面 empty per-symbol series → coverage:false (既有降級行為)", async () => {
+    const deps = await makeDeps(dataDir, { valuationSeriesPoints: [] });
+    const hl = await getHealthLights(deps, "1513", NOW);
+    const valuation = hl.faces.find((f) => f.face === "valuation")!;
+    expect(valuation.coverage).toBe(false);
+    expect(valuation.signal).toBe("neutral");
+    // Other faces unaffected → headline still emitted.
     expect(hl.headline.length).toBeGreaterThan(0);
   });
 });
