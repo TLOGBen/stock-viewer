@@ -38,6 +38,13 @@ const barWidth = computed(() => {
 const overallClass = computed(() =>
   props.data ? signalClass(props.data.overall.signal) : "c-flat",
 );
+
+/**
+ * Round a score for display. The wire value carries full float precision
+ * (e.g. 54.7342903…) which overflowed the hero; the headline already rounds
+ * ("55 分"), so the big number and lamp scores match it as clean integers.
+ */
+const fmt = (n: number): number => Math.round(n);
 </script>
 
 <template>
@@ -51,7 +58,7 @@ const overallClass = computed(() =>
         <div v-if="props.data" class="hl-body">
           <div class="hl-gauge" :class="overallClass">
             <div class="hl-score-row">
-              <span class="hl-score mono">{{ props.data.overall.score }}</span>
+              <span class="hl-score mono">{{ fmt(props.data.overall.score) }}</span>
               <span class="hl-max dim mono">/100</span>
             </div>
             <div class="hl-bar" aria-hidden="true">
@@ -75,7 +82,7 @@ const overallClass = computed(() =>
               >
               <span class="hl-face-name mono">{{ faceLabel(f.face) }}</span>
               <span class="hl-face-score mono">{{
-                f.coverage ? `${f.score}/25` : "—"
+                f.coverage ? `${fmt(f.score)}/25` : "—"
               }}</span>
             </li>
           </ul>

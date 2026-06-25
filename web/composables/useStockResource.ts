@@ -100,11 +100,16 @@ export function useCompany(symbolRef: Ref<string>): UseStockResource<CompanyView
   return makeStockResource(fetchCompany, resolveObjectStatus)(symbolRef);
 }
 
-/** 月營收序列. cold-start single point ⇒ accumulating (< 2 期). */
+/**
+ * 月營收序列. A plain table renders any month it has — even a single cold-start
+ * period — so minPeriods=1 (no accumulating gate). The「累積中」gate is reserved
+ * for derived indicators that need N periods to be meaningful (e.g. 河流圖 band),
+ * not a raw listing.
+ */
 export function useRevenue(symbolRef: Ref<string>): UseStockResource<RevenueView> {
   const { fetchRevenue } = useApi();
   return makeStockResource<RevenueView>(fetchRevenue, (r) =>
-    resolveSeriesStatus(r?.series.length ?? null, r != null, 2),
+    resolveSeriesStatus(r?.series.length ?? null, r != null, 1),
   )(symbolRef);
 }
 
