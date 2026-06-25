@@ -1,5 +1,5 @@
 import { fileURLToPath } from "node:url";
-import type { InstrumentMeta } from "./types.js";
+import type { InstrumentMeta } from "./domain/index.js";
 
 /**
  * Runtime configuration for the TWSE backend.

@@ -1,7 +1,7 @@
 /**
  * adapters/historyClient — outbound IO boundary for the TWSE STOCK_DAY (rwd
  * afterTrading) daily-K endpoint. It ONLY fetches one month of raw JSON for a
- * symbol; the response→Candle parsing stays pure in `historyFetcher`
+ * symbol; the response→Candle parsing stays pure in `domain/history`
  * (`parseStockDayResponse`). The fetch is injectable for tests.
  *
  * Throws on non-2xx / timeout — the caller wraps each month in try/catch so one

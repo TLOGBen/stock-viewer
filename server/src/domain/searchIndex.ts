@@ -1,4 +1,4 @@
-import type { Security } from "../types.js";
+import type { Security } from "./types.js";
 
 /**
  * Pure search index over the securities universe. No deps, no I/O.

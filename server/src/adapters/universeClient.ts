@@ -1,13 +1,17 @@
 /**
  * adapters/universeClient — outbound IO boundary for the two key-free OpenAPI
  * directory endpoints (TWSE `STOCK_DAY_ALL` + TPEx mainboard daily close). It
- * ONLY fetches the raw JSON arrays; the row→Security mapping and dedupe
- * (`normalizeUniverse`) stay as pure functions in `universe/sources`.
+ * fetches the raw JSON arrays and exposes `fetchUniverse` which folds the pure
+ * row→Security mapping + dedupe (`normalizeUniverse`, in `domain/`) over them.
  *
  * Each source is fetched independently with per-source try/catch so one failing
  * source still yields the other. Throws only when BOTH sources fail (caller
  * falls back to the stale cache). The fetch is injectable for tests.
  */
+
+import { config } from "../config.js";
+import type { Security } from "../domain/index.js";
+import { normalizeUniverse } from "../domain/index.js";
 
 /** Browser-like UA — the OpenAPI hosts 403 default fetch agents. */
 const BROWSER_UA =
@@ -83,4 +87,19 @@ export function createUniverseClient(
       return { twseRows, tpexRows };
     },
   };
+}
+
+/**
+ * Fetch BOTH endpoints (via the injectable client) then run the pure
+ * normalize+dedupe (`domain/normalizeUniverse`). Returns the merged, deduped
+ * Security[] (TSE wins on clash). The client throws only when BOTH sources fail
+ * (caller falls back to stale cache); `client` is injectable so callers/tests
+ * can stub the network.
+ */
+export async function fetchUniverse(
+  cfg: UniverseEndpoints = config,
+  client: UniverseClient = createUniverseClient(),
+): Promise<Security[]> {
+  const { twseRows, tpexRows } = await client.fetchRaw(cfg);
+  return normalizeUniverse(twseRows, tpexRows);
 }

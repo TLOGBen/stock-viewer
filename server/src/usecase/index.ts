@@ -28,6 +28,7 @@ export {
   type WatchlistView,
 } from "./manageWatchlist.js";
 export { getMarketStats, type GetMarketStatsDeps } from "./getMarketStats.js";
+export { fetchDailyCandles } from "./fetchHistory.js";
 export {
   getHealth,
   rollupStatus,

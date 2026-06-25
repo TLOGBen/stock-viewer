@@ -16,6 +16,7 @@ export {
 } from "./officialClient.js";
 export {
   createUniverseClient,
+  fetchUniverse,
   type UniverseClient,
   type UniverseEndpoints,
   type RawUniverse,

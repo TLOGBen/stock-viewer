@@ -13,7 +13,7 @@
  */
 import { config } from "../config.js";
 import { buildExCh } from "../domain/index.js";
-import type { InstrumentMeta } from "../types.js";
+import type { InstrumentMeta } from "../domain/index.js";
 
 /** Hard ceiling on a single MIS request so a hung upstream cannot stall the feed. */
 const MAX_TIMEOUT_MS = 5000;

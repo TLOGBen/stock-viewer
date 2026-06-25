@@ -1,6 +1,5 @@
-import type { SymbolStats } from "../domain/index.js";
+import type { SymbolStats, Exch } from "../domain/index.js";
 import type { HistoryCache } from "../persistence/index.js";
-import type { Exch } from "../historyFetcher.js";
 import { statsFromDaily, emptyStats } from "../domain/index.js";
 import type { UniverseProvider } from "./universeService.js";
 

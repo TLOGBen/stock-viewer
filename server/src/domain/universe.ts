@@ -1,17 +1,9 @@
-import { config } from "../config.js";
-import type { Security, SecurityType } from "../types.js";
-import {
-  createUniverseClient,
-  type UniverseClient,
-} from "../adapters/universeClient.js";
+import type { Security, SecurityType } from "./types.js";
 
 /**
- * Universe sources: merge the two key-free OpenAPI directory endpoints
- * (TWSE STOCK_DAY_ALL + TPEx mainboard daily close) into Security[].
- *
- * The network fetch now lives in `adapters/universeClient`; this module keeps
- * the pure, network-free row→Security mapping + dedupe (exported for tests) and
- * orchestrates "fetch raw → normalize".
+ * Pure universe normalization: row→Security mapping + dedupe for the two
+ * key-free OpenAPI directory endpoints (TWSE STOCK_DAY_ALL + TPEx mainboard
+ * daily close). No I/O — the network fetch lives in `adapters/universeClient`.
  */
 
 /** Classify a security by code shape: 00-prefixed → ETF, else stock. */
@@ -77,23 +69,4 @@ export function normalizeUniverse(
   }
 
   return [...bySymbol.values()];
-}
-
-export interface UniverseSourceConfig {
-  universeTwseUrl: string;
-  universeTpexUrl: string;
-}
-
-/**
- * Fetch BOTH endpoints (via the injectable adapters/universeClient) then run
- * the pure normalize+dedupe. Returns the merged, deduped Security[] (TSE wins on
- * clash). The client throws only when BOTH sources fail (caller falls back to
- * stale cache); `client` is injectable so callers/tests can stub the network.
- */
-export async function fetchUniverse(
-  cfg: UniverseSourceConfig = config,
-  client: UniverseClient = createUniverseClient(),
-): Promise<Security[]> {
-  const { twseRows, tpexRows } = await client.fetchRaw(cfg);
-  return normalizeUniverse(twseRows, tpexRows);
 }

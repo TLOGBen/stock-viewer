@@ -11,3 +11,6 @@ export * from "./market.js";
 export * from "./mis.js";
 export * from "./marketStats.js";
 export * from "./officialClose.js";
+export * from "./searchIndex.js";
+export * from "./universe.js";
+export * from "./history.js";

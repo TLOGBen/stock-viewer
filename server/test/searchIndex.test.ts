@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
-import type { Security } from "../src/types.js";
-import { buildSearchIndex } from "../src/universe/searchIndex.js";
+import type { Security } from "../src/domain/index.js";
+import { buildSearchIndex } from "../src/domain/index.js";
 
 const SECURITIES: Security[] = [
   { symbol: "2330", name: "台積電", exch: "tse", type: "stock" },

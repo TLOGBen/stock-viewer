@@ -1,12 +1,12 @@
 import { describe, expect, it } from "vitest";
 
-import type { Candle } from "../src/types.js";
+import type { Candle } from "../src/domain/index.js";
 import {
   parseStockDayRow,
   parseStockDayResponse,
   rocDateToEpoch,
   stripCommas,
-} from "../src/historyFetcher.js";
+} from "../src/domain/index.js";
 import { rollupDaily } from "../src/persistence/historyCache.js";
 
 describe("stripCommas", () => {

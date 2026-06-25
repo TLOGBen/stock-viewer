@@ -1,7 +1,17 @@
 import { promises as fs } from "node:fs";
 import path from "node:path";
-import type { Candle } from "../domain/index.js";
-import { fetchDailyCandles, type Exch } from "../historyFetcher.js";
+import type { Candle, Exch } from "../domain/index.js";
+
+/**
+ * Injectable daily-candle backfill. The orchestration that fetches STOCK_DAY
+ * lives in `usecase/fetchHistory`; persistence depends only inward (domain), so
+ * the fetcher is injected by the composition root rather than imported here.
+ */
+export type DailyFetcher = (
+  symbol: string,
+  exch: Exch,
+  monthsBack: number,
+) => Promise<Candle[]>;
 
 /**
  * Cache-first daily K-line store + pure weekly/monthly roll-up.
@@ -124,9 +134,11 @@ function calendarMonthKey(timestamp: number): number {
  */
 export class HistoryCache {
   private readonly dataDir: string;
+  private readonly fetchDaily: DailyFetcher;
 
-  constructor(dataDir: string) {
+  constructor(dataDir: string, fetchDaily: DailyFetcher) {
     this.dataDir = dataDir;
+    this.fetchDaily = fetchDaily;
   }
 
   /** Absolute path to the klines sub-directory. */
@@ -197,7 +209,7 @@ export class HistoryCache {
     }
 
     try {
-      const candles = await fetchDailyCandles(symbol, exch, MONTHS_BACK);
+      const candles = await this.fetchDaily(symbol, exch, MONTHS_BACK);
       // An empty fetch (e.g. otc) should not clobber a usable stale cache.
       if (candles.length === 0 && cached != null) {
         return cached.candles;

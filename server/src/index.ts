@@ -2,7 +2,7 @@ import http from "node:http";
 import express from "express";
 import { createRequire } from "node:module";
 import { config, INSTRUMENTS } from "./config.js";
-import { TwseFeed, UniverseProvider } from "./usecase/index.js";
+import { TwseFeed, UniverseProvider, fetchDailyCandles } from "./usecase/index.js";
 import { createApiRouter, createWsServer } from "./action/index.js";
 import {
   corsMiddleware,
@@ -55,7 +55,7 @@ async function main(): Promise<void> {
   // Intraday candle aggregation (1m/5m/15m fold) and daily history (STOCK_DAY
   // backfill, on-disk cache) — shared by the feed and the REST k-line route.
   const candleStore = new CandleStore();
-  const historyCache = new HistoryCache(config.dataDir);
+  const historyCache = new HistoryCache(config.dataDir, fetchDailyCandles);
 
   // ── usecase: one shared feed instance powers both REST and WebSocket ──
   const feed = new TwseFeed({ watchlist, provider, viewed, candleStore });

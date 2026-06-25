@@ -5,7 +5,7 @@ import {
   mapTwseRow,
   mapTpexRow,
   normalizeUniverse,
-} from "../src/universe/sources.js";
+} from "../src/domain/index.js";
 
 /** Inline samples mirroring the real STOCK_DAY_ALL / TPEx row shapes. */
 const TWSE_ROWS = [

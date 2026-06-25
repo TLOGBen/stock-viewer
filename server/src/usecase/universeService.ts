@@ -1,15 +1,16 @@
-import type { Security, UniverseSnapshot } from "../domain/index.js";
-import { fetchUniverse } from "../universe/sources.js";
+import {
+  buildSearchIndex,
+  type Security,
+  type UniverseSnapshot,
+  type SearchIndex,
+  type RankedSecurity,
+} from "../domain/index.js";
+import { fetchUniverse } from "../adapters/index.js";
 import {
   readUniverseCache,
   writeUniverseCache,
   isFresh,
 } from "../persistence/index.js";
-import {
-  buildSearchIndex,
-  type SearchIndex,
-  type RankedSecurity,
-} from "../universe/searchIndex.js";
 
 /**
  * usecase/universeService — owns the in-memory securities universe + its search

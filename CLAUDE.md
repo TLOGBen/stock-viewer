@@ -66,13 +66,11 @@ index.ts       composition root：建立 adapters→persistence→usecase→acti
 | **action** | `action/` | HTTP 路由（`httpApi.ts`，掛 `/api`，含 `/api/health`）、WS 連線（`wsServer.ts`，path `/ws`）。把請求轉給 usecase、把結果序列化上線 | 業務邏輯、直接讀寫磁碟、直接 fetch |
 | **middleware** | `middleware/` | cors / json / 統一 errorHandler / symbol 驗證 / packaged 模式 SPA 靜態服務 + history fallback（`WEB_DIST`） | 業務決策 |
 | **usecase** | `usecase/` | feed 輪詢（`quoteFeed.ts`）、kline、search、watchlist、health、marketStats、universeService。注入 adapters/persistence | 自行 `new` adapter（必須注入）、直接框架依賴 |
-| **domain** | `domain/` | 型別（Quote/Market/Health/Instrument/Candle/Message…）+ 純函式（parseMisItem/parseLevels/computeMarketStatus/tickSize/marketStats/validation/parseStockDayAllRow） | **任何 IO**：`express`/`ws`/`fetch`/`node:fs` |
+| **domain** | `domain/` | 型別（Quote/Market/Health/Instrument/Candle/Message…）+ 純函式（parseMisItem/parseLevels/computeMarketStatus/tickSize/marketStats/validation/parseStockDayAllRow/buildSearchIndex/normalizeUniverse/parseStockDayResponse） | **任何 IO**：`express`/`ws`/`fetch`/`node:fs` |
 | **persistence** | `persistence/` | repo 介面 + 實作（磁碟/記憶體）：watchlistStore / universeCache / historyCache / officialCloseCache（1 天 TTL）/ candleStore | 對外 HTTP、業務編排 |
 | **adapters** | `adapters/` | 把外部 HTTP 來源封裝成 client：misClient / officialClient / universeClient / historyClient。逾時/錯誤在此邊界處理 | 解析成富型別（留 domain）、持久化 |
 
-每層都有 barrel `index.ts` 作為單一 import 介面（`./adapters/index.js`、`./persistence/index.js`、`./usecase/index.js`、`./action/index.js`、`./middleware/index.js`、`./domain/index.js`）。
-
-> 歷史相容 barrel：`twseFeed.ts` / `types.ts` / `validation.ts` 等舊路徑為 re-export shim，讓既有測試的 import 不必大改。**新程式不要 import 這些 shim**，請直接 import 對應的分層 barrel。
+每層都有 barrel `index.ts` 作為單一 import 介面（`./adapters/index.js`、`./persistence/index.js`、`./usecase/index.js`、`./action/index.js`、`./middleware/index.js`、`./domain/index.js`）。**一律從這些分層 barrel import**，不要指向層內單檔。舊的 `src/` 根目錄 re-export shim（`types.ts` / `validation.ts` / `twseFeed.ts` …）與 `universe/` / `watchlist/` 子目錄已全數移除，真碼皆已落到對應層。
 
 ---
 

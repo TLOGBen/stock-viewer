@@ -1,6 +1,9 @@
-import type { Security, UniverseSnapshot } from "../domain/index.js";
+import type {
+  Security,
+  UniverseSnapshot,
+  RankedSecurity,
+} from "../domain/index.js";
 import type { UniverseProvider } from "./universeService.js";
-import type { RankedSecurity } from "../universe/searchIndex.js";
 
 /**
  * usecase/searchUniverse — read-side queries over the securities universe.

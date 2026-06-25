@@ -1,36 +1,19 @@
 import type { Candle } from "./types.js";
-import {
-  createHistoryClient,
-  type HistoryClient,
-} from "./adapters/historyClient.js";
 
 /**
- * Daily K-line backfill from the TWSE STOCK_DAY endpoint (key-free).
- *
- * One request per month for the last `monthsBack` months. The network call now
- * lives in `adapters/historyClient`; the pure parsing helpers (ROC date → epoch,
- * comma strip, row → Candle) are kept and exported for unit tests so the mapping
- * is verifiable without touching the network.
- *
- * TPEx (otc) has no reliable equivalent wired here yet, so otc returns [] and
- * never throws — tse is the priority surface for backfill.
+ * Pure parsing for the TWSE STOCK_DAY daily-K endpoint: ROC date → epoch,
+ * comma strip, row → Candle, response → Candle[]. No I/O — the network fetch
+ * lives in `adapters/historyClient` and the orchestration in
+ * `usecase/fetchHistory`.
  */
 
-/** Polite spacing between month requests so we do not hammer the endpoint. */
-const INTER_REQUEST_DELAY_MS = 120;
-
-/** Exchange tokens accepted by the fetcher. */
+/** Exchange tokens accepted by the history fetcher. */
 export type Exch = "tse" | "otc";
 
 /** A single STOCK_DAY response body (loosely typed — validated at parse time). */
 interface StockDayResponse {
   stat?: unknown;
   data?: unknown;
-}
-
-/** Resolve after `ms` — a cancellation-free micro delay between requests. */
-function delay(ms: number): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 /** Strip every thousands separator before numeric parsing ("45,207" → "45207"). */
@@ -128,75 +111,4 @@ export function parseStockDayResponse(json: unknown): Candle[] {
     if (candle != null) candles.push(candle);
   }
   return candles;
-}
-
-/** "YYYYMM01" query date for the month that is `monthsAgo` months before now. */
-function monthQueryDate(monthsAgo: number, now: Date): string {
-  const year = now.getUTCFullYear();
-  const month = now.getUTCMonth(); // 0-based
-  const target = new Date(Date.UTC(year, month - monthsAgo, 1));
-  const yyyy = target.getUTCFullYear();
-  const mm = String(target.getUTCMonth() + 1).padStart(2, "0");
-  return `${yyyy}${mm}01`;
-}
-
-/**
- * Fetch (via the injectable adapters/historyClient) + parse a single month of
- * STOCK_DAY rows. Throws on HTTP error (from the client).
- */
-async function fetchMonth(
-  client: HistoryClient,
-  symbol: string,
-  date: string,
-): Promise<Candle[]> {
-  const json = await client.fetchMonthRaw(symbol, date);
-  return parseStockDayResponse(json);
-}
-
-/** Merge month batches: sort ascending by timestamp and dedupe (last write wins). */
-function mergeCandles(batches: Candle[][]): Candle[] {
-  const byTimestamp = new Map<number, Candle>();
-  for (const batch of batches) {
-    for (const candle of batch) {
-      byTimestamp.set(candle.timestamp, candle);
-    }
-  }
-  return [...byTimestamp.values()].sort((a, b) => a.timestamp - b.timestamp);
-}
-
-/**
- * Fetch daily Candles for `symbol` over the last `monthsBack` months.
- *
- * - tse: one STOCK_DAY request per month, spaced by a short delay; each month
- *   is wrapped in try/catch so a single failure never kills the rest. The
- *   merged result is sorted ascending and deduped by timestamp.
- * - otc: returns [] (no reliable endpoint wired) — never throws.
- */
-export async function fetchDailyCandles(
-  symbol: string,
-  exch: Exch,
-  monthsBack: number,
-  client: HistoryClient = createHistoryClient(),
-): Promise<Candle[]> {
-  if (exch !== "tse") return [];
-
-  const months = Number.isFinite(monthsBack) ? Math.max(1, Math.trunc(monthsBack)) : 1;
-  const now = new Date();
-  const batches: Candle[][] = [];
-
-  for (let i = 0; i < months; i++) {
-    if (i > 0) await delay(INTER_REQUEST_DELAY_MS);
-    const date = monthQueryDate(i, now);
-    try {
-      const monthCandles = await fetchMonth(client, symbol, date);
-      batches.push(monthCandles);
-    } catch (err) {
-      console.error(
-        `[historyFetcher] month ${date} for ${symbol} failed:`,
-        err,
-      );
-    }
-  }
-
-  return mergeCandles(batches);
 }
