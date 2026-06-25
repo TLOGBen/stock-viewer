@@ -2,7 +2,12 @@ import http from "node:http";
 import express from "express";
 import { createRequire } from "node:module";
 import { config, INSTRUMENTS } from "./config.js";
-import { TwseFeed, UniverseProvider, fetchDailyCandles } from "./usecase/index.js";
+import {
+  TwseFeed,
+  UniverseProvider,
+  fetchDailyCandles,
+  VALUATION_SERIES_CAP,
+} from "./usecase/index.js";
 import type { StockPageDeps } from "./usecase/index.js";
 import { createApiRouter, createWsServer } from "./action/index.js";
 import {
@@ -88,7 +93,10 @@ function rowCode(row: Record<string, unknown>, key: string): string {
 }
 
 /** Days of per-symbol revenue history retained (cache B cap). */
-const REVENUE_SERIES_CAP = 36;
+// Raised from 36 so a FinMind backfill (2002→今, ~290 months and growing) is
+// retained in full rather than trimmed to the most recent 3 years; ~360 leaves
+// headroom for ongoing runtime accumulation (REQ-004 / data group cap fix).
+const REVENUE_SERIES_CAP = 360;
 
 /**
  * Assemble the injected 個股頁 (stock-page) dependency surface (REQ-014, C3).
@@ -263,6 +271,22 @@ function buildStockPageDeps(
     revenueFetcher,
   );
 
+  // ── cache B: per-symbol PE/PB series (估值河流圖 long history) ──
+  // The BWIBBU_ALL snapshot is whole-market; the per-symbol fetcher extracts the
+  // symbol's latest row so the series folds one fresh day per upsert. The
+  // build-time seed populates the multi-year backfill (integration group).
+  const valuationSeries = new SnapshotSeriesCache<ValuationPoint>(
+    dataDir,
+    "valuation-series",
+    (item) => item.date,
+    VALUATION_SERIES_CAP,
+    async (symbol) => {
+      const rows = await valuation.fetchBwibbuRows();
+      const row = rows.find((r) => rowCode(r, "Code") === symbol);
+      return row != null ? parseBwibbuRow(row) : null;
+    },
+  );
+
   return {
     provider,
     company,
@@ -273,6 +297,7 @@ function buildStockPageDeps(
     institutional,
     margin,
     valuation: valuationCache,
+    valuationSeries,
     exRight,
     disclosures,
     history: historyCache,

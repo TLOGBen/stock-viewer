@@ -53,6 +53,16 @@ export type DisclosureCache = BulkByDateCache<Disclosure[]>;
 export type RevenueCache = SnapshotSeriesCache<MonthlyRevenue>;
 
 /**
+ * 估值 per-symbol series cache (PE/PB/殖利率 → ValuationPoint), keyed by date.
+ * Mirrors RevenueCache (cache B): the build-time FinMind seed and the runtime
+ * continuation both fold per-day ValuationPoints into this series, so getValuation
+ * and getHealthLights.valuationFace read ONE per-symbol source — not the
+ * whole-market by-date cache. Replaces the 60-day by-date reconstruction with a
+ * long (multi-year) river-chart history.
+ */
+export type ValuationSeriesCache = SnapshotSeriesCache<ValuationPoint>;
+
+/**
  * 損益表 per-variant fetcher. Given a symbol and a candidate financial variant,
  * returns the latest FinancialStatement for that variant or null when the symbol
  * is absent from that variant's snapshot. The composition root wires this over
@@ -95,6 +105,8 @@ export interface StockPageDeps {
   institutional: InstitutionalCache;
   margin: MarginCache;
   valuation: ValuationCache;
+  /** Per-symbol PE/PB series (cache B); getValuation reads its long history. */
+  valuationSeries: ValuationSeriesCache;
   exRight: ExRightCache;
   disclosures: DisclosureCache;
   /** Daily K-line cache reused for the technical face + 河流圖 current price. */
@@ -111,6 +123,13 @@ export const DEFAULT_RECENT_DAYS = 5;
  * shows the「累積中」state.
  */
 export const VALUATION_WINDOW_DAYS = 60;
+
+/**
+ * Max retained daily PE/PB points in the per-symbol valuation series (cache B).
+ * ~6 years of trading days (~250/yr) so the river-chart band spans a long
+ * history rather than the legacy 60-day window; trims oldest from the front.
+ */
+export const VALUATION_SERIES_CAP = 1500;
 
 /** The four financial sub-variants probed, in order, for a 金融保險業 symbol. */
 export const FINANCIAL_VARIANTS = ["basi", "mim", "fh", "ins"] as const;

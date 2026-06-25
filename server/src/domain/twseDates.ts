@@ -34,6 +34,23 @@ export function rocYYYMM(packed: string): YearMonth | null {
 }
 
 /**
+ * Convert a Gregorian "YYYY-MM-DD" (e.g. FinMind's date) into the ROC-packed
+ * date string `ValuationPoint.date` stores, "1150624" (ROC year + MM + DD).
+ * ROC year = Gregorian year − 1911; month/day zero-padded to 2. Returns null
+ * for malformed input — and never routes through `rocYYYMM`, whose `^\d{4,6}$`
+ * regex rejects hyphenated dates. Pure, no I/O.
+ */
+export function gregorianToRocPacked(gregorian: string): string | null {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(gregorian.trim());
+  if (m == null) return null;
+  const year = Number.parseInt(m[1] as string, 10);
+  const month = Number.parseInt(m[2] as string, 10);
+  const day = Number.parseInt(m[3] as string, 10);
+  if (month < 1 || month > 12 || day < 1 || day > 31) return null;
+  return `${year - 1911}${String(month).padStart(2, "0")}${String(day).padStart(2, "0")}`;
+}
+
+/**
  * Parse a Chinese ROC date like "115年06月25日" → epoch ms of that day's UTC
  * midnight. Tolerates unpadded month/day ("115年6月5日"). Returns NaN for any
  * malformed token or out-of-range field so callers can skip the row.

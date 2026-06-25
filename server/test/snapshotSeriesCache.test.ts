@@ -120,4 +120,100 @@ describe("SnapshotSeriesCache", () => {
     );
     await expect(cache.getSeries("9999")).resolves.toEqual([]);
   });
+
+  describe("seedSeries (whole-series write)", () => {
+    const noFetch: LatestItemFetcher<Rev> = async () => null;
+
+    it("writes a whole historical series atomically with the SeriesFile shape", async () => {
+      const cache = new SnapshotSeriesCache<Rev>(dataDir, "revenue", KEY, CAP, noFetch);
+      const items: Rev[] = [
+        { yearMonth: "2026-03", revenueThousands: 1 },
+        { yearMonth: "2026-04", revenueThousands: 2 },
+        { yearMonth: "2026-05", revenueThousands: 3 },
+      ];
+
+      const result = await cache.seedSeries("1513", items);
+      expect(result).toEqual(items);
+
+      const file = await fs.readFile(
+        path.join(dataDir, "revenue", "1513.json"),
+        "utf8",
+      );
+      const parsed = JSON.parse(file) as { asOf: number; items: Rev[] };
+      expect(typeof parsed.asOf).toBe("number");
+      expect(parsed.items).toEqual(items);
+
+      const entries = await fs.readdir(path.join(dataDir, "revenue"));
+      expect(entries.some((e) => e.endsWith(".tmp"))).toBe(false);
+    });
+
+    it("de-dups by key — re-seeding the same period replaces (latest wins)", async () => {
+      const cache = new SnapshotSeriesCache<Rev>(dataDir, "revenue", KEY, CAP, noFetch);
+      await cache.seedSeries("1513", [
+        { yearMonth: "2026-05", revenueThousands: 100 },
+      ]);
+      const result = await cache.seedSeries("1513", [
+        { yearMonth: "2026-05", revenueThousands: 200 },
+        { yearMonth: "2026-06", revenueThousands: 5 },
+      ]);
+      expect(result).toEqual([
+        { yearMonth: "2026-05", revenueThousands: 200 },
+        { yearMonth: "2026-06", revenueThousands: 5 },
+      ]);
+    });
+
+    it("caps from the front (trims oldest) when the merged series exceeds cap", async () => {
+      const smallCap = 3;
+      const cache = new SnapshotSeriesCache<Rev>(
+        dataDir,
+        "revenue",
+        KEY,
+        smallCap,
+        noFetch,
+      );
+      const items: Rev[] = [
+        { yearMonth: "2026-01", revenueThousands: 1 },
+        { yearMonth: "2026-02", revenueThousands: 2 },
+        { yearMonth: "2026-03", revenueThousands: 3 },
+        { yearMonth: "2026-04", revenueThousands: 4 },
+        { yearMonth: "2026-05", revenueThousands: 5 },
+      ];
+      const result = await cache.seedSeries("1513", items);
+      expect(result.map((r) => r.yearMonth)).toEqual([
+        "2026-03",
+        "2026-04",
+        "2026-05",
+      ]);
+    });
+
+    it("is idempotent — seeding the same items twice yields identical file contents", async () => {
+      const cache = new SnapshotSeriesCache<Rev>(dataDir, "revenue", KEY, CAP, noFetch);
+      const items: Rev[] = [
+        { yearMonth: "2026-03", revenueThousands: 1 },
+        { yearMonth: "2026-04", revenueThousands: 2 },
+      ];
+      await cache.seedSeries("1513", items);
+      const after1 = JSON.parse(
+        await fs.readFile(path.join(dataDir, "revenue", "1513.json"), "utf8"),
+      ) as { items: Rev[] };
+
+      await cache.seedSeries("1513", items);
+      const after2 = JSON.parse(
+        await fs.readFile(path.join(dataDir, "revenue", "1513.json"), "utf8"),
+      ) as { items: Rev[] };
+
+      expect(after2.items).toEqual(after1.items);
+    });
+
+    it("blocks path traversal — a crafted symbol can never escape, never throws", async () => {
+      const cache = new SnapshotSeriesCache<Rev>(dataDir, "revenue", KEY, CAP, noFetch);
+      await expect(
+        cache.seedSeries("../escape", [
+          { yearMonth: "2026-05", revenueThousands: 1 },
+        ]),
+      ).resolves.toBeDefined();
+      const escaped = path.join(dataDir, "escape.json");
+      await expect(fs.access(escaped)).rejects.toThrow();
+    });
+  });
 });

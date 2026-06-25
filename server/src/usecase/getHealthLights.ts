@@ -208,26 +208,32 @@ async function technicalFace(
   }
 }
 
-/** 最新 BWIBBU PE/PB/殖利率 → 估值面 face. */
+/**
+ * 最新 PE/PB/殖利率 → 估值面 face.
+ *
+ * Reads the SAME per-symbol valuation series (cache B) the 河流圖 (getValuation)
+ * reads — a single source of truth, so the face and the chart can never show two
+ * different PE/PB for the same symbol/day (REQ-003). ROC packed dates are
+ * variable-width strings, so the latest point is chosen by Number(date), never
+ * lexicographically. An empty series → coverage:false (既有「累積中」降級).
+ */
 async function valuationFace(
   deps: GetHealthLightsDeps,
   symbol: string,
-  now: Date,
 ): Promise<FaceLight> {
   try {
-    const dates = recentTradingDays(now, DEFAULT_RECENT_DAYS);
-    const days = await deps.valuation.getRecentDays(dates); // newest-first
-    for (const { map } of days) {
-      const pt = map.get(symbol);
-      if (pt != null) {
-        return scoreValuation({
-          pe: pt.pe,
-          pb: pt.pb,
-          dividendYieldPct: pt.dividendYieldPct,
-        });
-      }
+    const points = await deps.valuationSeries.getSeries(symbol);
+    if (points.length === 0) {
+      return scoreValuation({ pe: null, pb: null, dividendYieldPct: null });
     }
-    return scoreValuation({ pe: null, pb: null, dividendYieldPct: null });
+    const latest = points.reduce((a, b) =>
+      Number(b.date) >= Number(a.date) ? b : a,
+    );
+    return scoreValuation({
+      pe: latest.pe,
+      pb: latest.pb,
+      dividendYieldPct: latest.dividendYieldPct,
+    });
   } catch (err) {
     console.error(`[getHealthLights] ${symbol} valuation face failed:`, err);
     return scoreValuation({ pe: null, pb: null, dividendYieldPct: null });
@@ -249,7 +255,7 @@ export async function getHealthLights(
     fundamentalFace(deps, symbol),
     chipFace(deps, symbol, now, exch),
     technicalFace(deps, symbol, exch),
-    valuationFace(deps, symbol, now),
+    valuationFace(deps, symbol),
   ]);
 
   const faces = [fundamental, chip, technical, valuation];

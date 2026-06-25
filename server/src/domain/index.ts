@@ -19,6 +19,7 @@ export * from "./tradingDays.js";
 export * from "./series.js";
 export * from "./company.js";
 export * from "./revenue.js";
+export * from "./revenueDerive.js";
 export * from "./valuation.js";
 export * from "./rwd.js";
 export * from "./institutional.js";
