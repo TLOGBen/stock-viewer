@@ -111,6 +111,67 @@ describe("HealthLights — success", () => {
   });
 });
 
+describe("HealthLights — 詳細數據", () => {
+  const withReasons: HealthLightsView = {
+    ...sample,
+    faces: [
+      {
+        face: "fundamental",
+        signal: "bullish",
+        score: 17,
+        coverage: true,
+        reasons: ["EPS 1.94 元（獲利）", "營收年增 9%"],
+      },
+      {
+        face: "chip",
+        signal: "bearish",
+        score: 13,
+        coverage: true,
+        reasons: ["外資 5 日累淨 -11,057 張（連賣）"],
+      },
+      // covered but no reasons → excluded from the detail list
+      {
+        face: "technical",
+        signal: "bullish",
+        score: 21,
+        coverage: true,
+        reasons: [],
+      },
+      // no coverage → excluded
+      {
+        face: "valuation",
+        signal: "neutral",
+        score: 0,
+        coverage: false,
+        reasons: ["本益比 18"],
+      },
+    ],
+  };
+
+  it("lists per-face reasons for covered faces that have them, in face order", () => {
+    const wrapper = mount(HealthLights, {
+      props: { status: "success", data: withReasons },
+    });
+    const faces = wrapper.findAll(".hl-detail-face");
+    // fundamental + chip carry reasons; technical (empty) and valuation (no
+    // coverage) drop out.
+    expect(faces).toHaveLength(2);
+    expect(wrapper.find(".hl-detail-title").text()).toBe("四燈號健診詳細數據");
+    expect(faces[0].text()).toContain("基本面");
+    expect(faces[0].text()).toContain("EPS 1.94 元（獲利）");
+    expect(faces[1].text()).toContain("外資 5 日累淨 -11,057 張（連賣）");
+    // verdict label is surfaced next to the face name
+    expect(faces[0].find(".hl-detail-head").text()).toContain("偏多");
+  });
+
+  it("omits the 詳細數據 block entirely when no covered face has reasons", () => {
+    const wrapper = mount(HealthLights, {
+      props: { status: "success", data: sample },
+    });
+    expect(wrapper.find(".hl-detail").exists()).toBe(false);
+  });
+});
+
 describe("HealthLights — empty", () => {
   it("hands non-success states to StateBlock and paints no hero", () => {
     const wrapper = mount(HealthLights, {
