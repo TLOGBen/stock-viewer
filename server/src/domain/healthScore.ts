@@ -516,9 +516,21 @@ const SIGNAL_LABEL: Record<Signal, string> = {
   bearish: "偏空",
 };
 
+/** headline 逐面向敘事的固定排序 (基本面→籌碼面→技術面→估值面)。 */
+const HEADLINE_FACE_ORDER: readonly FaceName[] = [
+  "fundamental",
+  "chip",
+  "technical",
+  "valuation",
+];
+
 /**
- * 規則樣板生成標題 (非 LLM)：依 overall 燈號 + 最強/最弱面向組句。
+ * 規則樣板生成「一句話看懂」(非 LLM)：對每個有 coverage 的面向組一句帶數字的
+ * 判讀 (沿用該面向已算好的 `reasons`)，固定面向順序串成段落，最後收一句整體評等。
  * 語意與燈號一致；無任何 coverage 時回保底字串。
+ *
+ * 例：「基本面 EPS 1.94 元（獲利）、營收年增 9%（中性）。籌碼面 外資 5 日累淨
+ * -11,057 張（連賣）（偏空）。技術面 均線多頭排列、RSI 68（偏多）。整體中性（64 分）。」
  */
 export function buildHeadline(
   overall: { score: number; signal: Signal },
@@ -527,18 +539,20 @@ export function buildHeadline(
   const covered = faces.filter((f) => f.coverage);
   if (covered.length === 0) return "資料累積中，暫無綜合評等";
 
-  const sorted = [...covered].sort((a, b) => b.score - a.score);
-  const best = sorted[0] as FaceLight;
-  const worst = sorted[sorted.length - 1] as FaceLight;
-  const head = `綜合${SIGNAL_LABEL[overall.signal]}（${Math.round(overall.score)} 分）`;
+  const clauses = HEADLINE_FACE_ORDER.map((name) =>
+    covered.find((f) => f.face === name),
+  )
+    .filter((f): f is FaceLight => f != null)
+    .map((f) => {
+      const verdict = SIGNAL_LABEL[f.signal];
+      const detail = f.reasons.length > 0 ? f.reasons.join("、") : "";
+      return detail
+        ? `${FACE_LABEL[f.face]} ${detail}（${verdict}）`
+        : `${FACE_LABEL[f.face]}${verdict}`;
+    });
 
-  if (best.face === worst.face) {
-    return `${head}，${FACE_LABEL[best.face]}${SIGNAL_LABEL[best.signal]}`;
-  }
-  return (
-    `${head}，${FACE_LABEL[best.face]}最強（${SIGNAL_LABEL[best.signal]}）、` +
-    `${FACE_LABEL[worst.face]}最弱（${SIGNAL_LABEL[worst.signal]}）`
-  );
+  const overallSentence = `整體${SIGNAL_LABEL[overall.signal]}（${Math.round(overall.score)} 分）`;
+  return `${clauses.join("。")}。${overallSentence}。`;
 }
 
 /**

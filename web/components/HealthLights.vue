@@ -17,9 +17,9 @@
  * through the shared <StateBlock>; on success the default slot paints the hero.
  */
 import { computed } from "vue";
-import type { HealthLights, ResourceStatus } from "~/types";
+import type { FaceName, HealthLights, ResourceStatus } from "~/types";
 import StateBlock from "~/components/StateBlock.vue";
-import { signalClass, faceLabel } from "~/utils/stockSignals";
+import { signalClass, signalLabel, faceLabel } from "~/utils/stockSignals";
 
 const props = defineProps<{
   status: ResourceStatus;
@@ -27,6 +27,29 @@ const props = defineProps<{
 }>();
 
 const emit = defineEmits<{ retry: [] }>();
+
+/** Fixed face order for the「詳細數據」list — mirrors the domain headline order. */
+const DETAIL_FACE_ORDER: readonly FaceName[] = [
+  "fundamental",
+  "chip",
+  "technical",
+  "valuation",
+];
+
+/**
+ * 四燈號健診詳細數據: the covered faces that carry rule-based reasons, in a fixed
+ * order. Each face's `reasons[]` already arrives as human-readable, number-bearing
+ * judgement lines from the domain scorer; we just surface them grouped per face
+ * (the winvest「四燈號健診詳細數據」block). Faces with no coverage/reasons drop out.
+ */
+const detailFaces = computed(() => {
+  const faces = props.data?.faces ?? [];
+  return DETAIL_FACE_ORDER.map((name) =>
+    faces.find((f) => f.face === name),
+  ).filter((f): f is NonNullable<typeof f> =>
+    f != null && f.coverage && f.reasons.length > 0,
+  );
+});
 
 /** Clamp the overall score to a sane bar width even if the wire drifts. */
 const barWidth = computed(() => {
@@ -88,6 +111,27 @@ const fmt = (n: number): number => Math.round(n);
           </ul>
 
           <p class="hl-headline dim">{{ props.data.headline }}</p>
+
+          <!-- 四燈號健診詳細數據: per-face rule-based reasons (winvest 明細區) -->
+          <div v-if="detailFaces.length" class="hl-detail">
+            <span class="hl-detail-title mono">四燈號健診詳細數據</span>
+            <div
+              v-for="f in detailFaces"
+              :key="f.face"
+              class="hl-detail-face"
+            >
+              <span class="hl-detail-head mono" :class="signalClass(f.signal)">
+                <span class="lamp" :class="signalClass(f.signal)" aria-hidden="true"
+                  >●</span
+                >
+                {{ faceLabel(f.face) }} · {{ signalLabel(f.signal) }}
+                {{ fmt(f.score) }}/25
+              </span>
+              <ul class="hl-detail-reasons mono">
+                <li v-for="(r, i) in f.reasons" :key="i">{{ r }}</li>
+              </ul>
+            </div>
+          </div>
         </div>
       </StateBlock>
     </div>
@@ -217,6 +261,64 @@ const fmt = (n: number): number => Math.round(n);
   margin: 6px 0 0;
 }
 
+/* 四燈號健診詳細數據: a hairline-topped per-face reason list under the headline */
+.hl-detail {
+  grid-column: 1 / -1;
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px solid var(--hairline);
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px 16px;
+}
+
+.hl-detail-title {
+  grid-column: 1 / -1;
+  font-size: 10px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--text-2);
+}
+
+.hl-detail-face {
+  min-width: 0;
+}
+
+.hl-detail-head {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.hl-detail-head.c-up {
+  color: var(--up);
+}
+
+.hl-detail-head.c-down {
+  color: var(--down);
+}
+
+.hl-detail-head.c-flat {
+  color: var(--flat);
+}
+
+.hl-detail-reasons {
+  margin: 4px 0 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.hl-detail-reasons li {
+  font-size: 11px;
+  line-height: 1.35;
+  color: var(--text-2);
+}
+
 @media (max-width: 640px) {
   .hl-body {
     grid-template-columns: 1fr;
@@ -224,6 +326,10 @@ const fmt = (n: number): number => Math.round(n);
 
   .hl-faces {
     grid-column: 1 / -1;
+  }
+
+  .hl-detail {
+    grid-template-columns: 1fr;
   }
 }
 </style>

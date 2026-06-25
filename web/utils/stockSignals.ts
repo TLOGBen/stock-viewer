@@ -32,6 +32,13 @@ export function faceLabel(face: FaceName): string {
   }
 }
 
+/** Chinese verdict label for a 四燈號 signal (mirror of domain SIGNAL_LABEL). */
+export function signalLabel(s: Signal): string {
+  if (s === "bullish") return "偏多";
+  if (s === "bearish") return "偏空";
+  return "中性";
+}
+
 /**
  * The terminal-state copy a StateBlock shows for each non-success status. `n`
  * is the accumulated-period count surfaced in the「歷史累積中」message.

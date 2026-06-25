@@ -279,23 +279,47 @@ describe("buildHeadline", () => {
     score: number,
     signal: FaceLight["signal"],
     coverage = true,
+    reasons: string[] = [],
   ): FaceLight {
-    return { face, score, signal, coverage, reasons: [] };
+    return { face, score, signal, coverage, reasons };
   }
 
-  it("names strongest and weakest covered faces, consistent with overall", () => {
+  it("builds a per-face narrative carrying each covered face's reasons + overall verdict", () => {
     const faces = [
-      f("fundamental", 24, "bullish"),
-      f("chip", 6, "bearish"),
-      f("technical", 12.5, "neutral"),
-      f("valuation", 12.5, "neutral"),
+      f("fundamental", 24, "bullish", true, ["EPS 1.94 元（獲利）", "營收年增 9%"]),
+      f("chip", 6, "bearish", true, ["外資 5 日累淨 -11,057 張（連賣）"]),
+      f("technical", 21, "bullish", true, ["均線多頭排列（EMA8>21>55）", "RSI 68"]),
+      f("valuation", 13, "neutral", true, ["本益比偏低 8.0"]),
     ];
-    const h = buildHeadline({ score: 55, signal: "neutral" }, faces);
-    expect(h).toContain("基本面");
-    expect(h).toContain("最強");
-    expect(h).toContain("籌碼面");
-    expect(h).toContain("最弱");
-    expect(h).toContain("綜合中性");
+    const h = buildHeadline({ score: 64, signal: "neutral" }, faces);
+    // each face's numeric reasons surface verbatim
+    expect(h).toContain("EPS 1.94 元（獲利）");
+    expect(h).toContain("外資 5 日累淨 -11,057 張（連賣）");
+    expect(h).toContain("均線多頭排列（EMA8>21>55）");
+    expect(h).toContain("本益比偏低 8.0");
+    // closes with the overall verdict
+    expect(h).toContain("整體中性（64 分）");
+  });
+
+  it("orders faces 基本面→籌碼面→技術面→估值面 regardless of input order", () => {
+    const faces = [
+      f("valuation", 13, "neutral", true, ["本益比 18"]),
+      f("technical", 21, "bullish", true, ["均線多頭排列"]),
+      f("chip", 6, "bearish", true, ["外資連賣"]),
+      f("fundamental", 24, "bullish", true, ["EPS 1.94 元（獲利）"]),
+    ];
+    const h = buildHeadline({ score: 64, signal: "neutral" }, faces);
+    const order = ["基本面", "籌碼面", "技術面", "估值面"].map((s) =>
+      h.indexOf(s),
+    );
+    expect(order).toEqual([...order].sort((a, b) => a - b));
+  });
+
+  it("a covered face with no reasons still names the face + its verdict", () => {
+    const faces = [f("fundamental", 24, "bullish", true, [])];
+    const h = buildHeadline({ score: 75, signal: "bullish" }, faces);
+    expect(h).toContain("基本面偏多");
+    expect(h).toContain("整體偏多（75 分）");
   });
 
   it("no coverage → fallback string", () => {
