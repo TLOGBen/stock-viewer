@@ -11,6 +11,7 @@
 const { app, BrowserWindow, shell, utilityProcess, dialog } = require("electron");
 const path = require("node:path");
 const net = require("node:net");
+const { registerBridge } = require("./bridge");
 
 const HOST = "127.0.0.1";
 const PORT = Number(process.env.PORT) || 4000;
@@ -83,6 +84,7 @@ async function createWindow() {
     webPreferences: {
       contextIsolation: true,
       nodeIntegration: false,
+      preload: path.join(__dirname, "bridge", "preload.js"),
     },
   });
 
@@ -91,6 +93,10 @@ async function createWindow() {
     shell.openExternal(url);
     return { action: "deny" };
   });
+
+  // Wire the web↔desktop bridge (tray, settings, quit) onto this window before
+  // it loads, so close/minimize interception is active from first paint.
+  registerBridge(win, app);
 
   try {
     await waitForPort(PORT, HOST);
