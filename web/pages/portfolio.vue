@@ -2,12 +2,40 @@
 // 持倉 — positions + realized/unrealized P&L. The blotter sources everything
 // from the usePositions() / useMarketData() singletons, so this page is layout
 // only and survives client-side navigation with live P&L intact. The account
-// summary strip below is purely derived (read-only computeds) from those same
-// singletons — it adds no state and mutates nothing.
+// summary strip below is derived (read-only computeds) from those same
+// singletons; the single exception is 可用資金, which the user may override
+// inline to seed an arbitrary buying power for what-if simulations.
+import { ref, nextTick } from "vue";
 import { SHARES_PER_LOT } from "~/types";
 
 const md = useMarketData();
 const pos = usePositions();
+
+// ── 可用資金 inline edit ──
+const editingCash = ref(false);
+const cashDraft = ref("");
+const cashInput = ref<HTMLInputElement | null>(null);
+
+/** Enter edit mode, seeding the draft with the current balance (raw integer). */
+function startEditCash(): void {
+  cashDraft.value = String(pos.cashBalance.value);
+  editingCash.value = true;
+  void nextTick(() => {
+    cashInput.value?.focus();
+    cashInput.value?.select();
+  });
+}
+
+/** Commit the draft to the book (invalid input is dropped) and leave edit mode. */
+function commitEditCash(): void {
+  pos.setCashBalance(Number(cashDraft.value));
+  editingCash.value = false;
+}
+
+/** Abandon the edit without touching the balance. */
+function cancelEditCash(): void {
+  editingCash.value = false;
+}
 
 /** Live price for a symbol, or null when no quote has arrived yet. */
 function priceOf(symbol: string): number | null {
@@ -71,7 +99,29 @@ function summaryValue(n: number | null): string {
       <div class="statgrid summary-grid">
         <div class="stat">
           <span class="stat-k">可用資金</span>
-          <span class="stat-v mono">{{ summaryValue(availableCash) }}</span>
+          <input
+            v-if="editingCash"
+            ref="cashInput"
+            v-model="cashDraft"
+            class="stat-v mono cash-input"
+            type="number"
+            min="0"
+            step="1"
+            inputmode="numeric"
+            aria-label="編輯可用資金"
+            @keydown.enter.prevent="commitEditCash"
+            @keydown.esc.prevent="cancelEditCash"
+            @blur="commitEditCash"
+          />
+          <button
+            v-else
+            type="button"
+            class="stat-v mono cash-edit"
+            title="點擊編輯可用資金"
+            @click="startEditCash"
+          >
+            {{ summaryValue(availableCash) }}
+          </button>
         </div>
         <div class="stat">
           <span class="stat-k">部位市值</span>
@@ -151,5 +201,48 @@ function summaryValue(n: number | null): string {
   .summary-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
+}
+
+/* 可用資金 is the one editable summary cell: a borderless button that reads as
+   plain text but hints its affordance on hover. */
+.cash-edit {
+  appearance: none;
+  border: 1px solid transparent;
+  background: none;
+  padding: 1px 4px;
+  margin: -1px -4px;
+  border-radius: 4px;
+  font: inherit;
+  color: inherit;
+  text-align: inherit;
+  cursor: text;
+}
+
+.cash-edit:hover {
+  border-color: var(--line, rgba(255, 255, 255, 0.12));
+  background: var(--surface-2, rgba(255, 255, 255, 0.04));
+}
+
+.cash-edit:focus-visible {
+  outline: none;
+  border-color: var(--amber);
+}
+
+.cash-input {
+  width: 100%;
+  min-width: 0;
+  appearance: none;
+  border: 1px solid var(--amber);
+  background: var(--surface-2, rgba(255, 255, 255, 0.04));
+  padding: 1px 4px;
+  margin: -1px -4px;
+  border-radius: 4px;
+  font: inherit;
+  color: inherit;
+}
+
+.cash-input:focus {
+  outline: none;
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--amber) 30%, transparent);
 }
 </style>
