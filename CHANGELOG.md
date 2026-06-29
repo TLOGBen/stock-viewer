@@ -2,6 +2,12 @@
 
 本專案的所有重要變更皆記錄於此。格式依循 [Keep a Changelog](https://keepachangelog.com/zh-TW/1.1.0/)，版本號採用 [語意化版本](https://semver.org/lang/zh-TW/)。
 
+## [1.7.0] - 2026-06-29
+
+### Added
+- 持倉落檔持久化：持倉與可用資金改存伺服器端 `{dataDir}/positions.json`，重整／關閉重開不再清空（新增 `GET`／`PUT /api/positions`，每次變更 debounced 落檔）。
+- 持倉頁新增「重置模擬」按鈕：確認後清空所有持倉並還原初始可用資金。
+
 ## [1.6.0] - 2026-06-29
 
 ### Added
@@ -51,6 +57,7 @@
 - 台股即時交易台首版（Nuxt 3 前端 + Node/ws 後端）。
 - 以 Electron 打包為 Windows 桌面應用，含 CI release 流程。
 
+[1.7.0]: https://github.com/TLOGBen/stock-viewer/compare/v1.6.0...v1.7.0
 [1.6.0]: https://github.com/TLOGBen/stock-viewer/compare/v1.5.0...v1.6.0
 [1.5.0]: https://github.com/TLOGBen/stock-viewer/compare/v1.4.0...v1.5.0
 [1.4.0]: https://github.com/TLOGBen/stock-viewer/compare/v1.3.0...v1.4.0
