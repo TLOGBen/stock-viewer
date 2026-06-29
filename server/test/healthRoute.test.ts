@@ -40,6 +40,7 @@ function makeDeps(feedHealth: FeedHealth): ApiDeps {
     feed,
     provider,
     watchlist: {} as ApiDeps["watchlist"],
+    positionBook: {} as ApiDeps["positionBook"],
     candleStore: {} as ApiDeps["candleStore"],
     historyCache: {} as ApiDeps["historyCache"],
     version: "9.9.9",

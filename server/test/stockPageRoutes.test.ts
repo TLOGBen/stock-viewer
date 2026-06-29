@@ -151,6 +151,7 @@ function makeDeps(): ApiDeps {
     feed: {} as ApiDeps["feed"],
     provider: {} as ApiDeps["provider"],
     watchlist: {} as ApiDeps["watchlist"],
+    positionBook: {} as ApiDeps["positionBook"],
     candleStore: {} as ApiDeps["candleStore"],
     historyCache: {} as ApiDeps["historyCache"],
     version: "9.9.9",

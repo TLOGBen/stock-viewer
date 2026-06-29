@@ -37,6 +37,15 @@ function cancelEditCash(): void {
   editingCash.value = false;
 }
 
+/** Reset the simulation (clear positions + restore starting cash) after confirm. */
+function resetSim(): void {
+  if (import.meta.client) {
+    const ok = window.confirm("重置模擬？將清空所有持倉並把可用資金還原為初始值。");
+    if (!ok) return;
+  }
+  pos.resetBook();
+}
+
 /** Live price for a symbol, or null when no quote has arrived yet. */
 function priceOf(symbol: string): number | null {
   return md.quotes.value[symbol]?.price ?? null;
@@ -93,6 +102,9 @@ function summaryValue(n: number | null): string {
   <div class="portfolio-page">
     <header class="page-head">
       <h1 class="page-title">持倉</h1>
+      <button type="button" class="reset-sim" title="清空持倉並還原可用資金" @click="resetSim">
+        重置模擬
+      </button>
     </header>
 
     <section class="account-summary" aria-label="帳戶摘要">
@@ -164,6 +176,27 @@ function summaryValue(n: number | null): string {
 .page-head {
   display: flex;
   align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+/* Subtle ghost button; hover hints the (destructive) reset affordance. */
+.reset-sim {
+  appearance: none;
+  border: 1px solid var(--line, rgba(255, 255, 255, 0.12));
+  background: none;
+  color: var(--dim, #9aa);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  padding: 4px 10px;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.reset-sim:hover {
+  border-color: var(--c-down, #3a7);
+  color: var(--text);
 }
 
 .page-title {

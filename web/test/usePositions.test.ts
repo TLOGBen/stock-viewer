@@ -32,3 +32,17 @@ describe("usePositions — setCashBalance (manual 可用資金 override)", () =>
     expect(pos.cashBalance.value).toBe(7_777);
   });
 });
+
+describe("usePositions — resetBook (重置模擬)", () => {
+  it("clears positions and restores the starting cash (10,000,000)", () => {
+    const pos = usePositions();
+    pos.submitOrder({ symbol: "2330", side: "buy", lots: 1, price: 1000 });
+    pos.setCashBalance(123);
+    expect(Object.keys(pos.positions.value).length).toBeGreaterThan(0);
+
+    pos.resetBook();
+
+    expect(pos.positions.value).toEqual({});
+    expect(pos.cashBalance.value).toBe(10_000_000);
+  });
+});

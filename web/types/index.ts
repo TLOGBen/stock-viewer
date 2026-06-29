@@ -471,6 +471,12 @@ export interface Position {
   realized: number; // realized P&L (TWD) accumulated on this symbol
 }
 
+/** The persisted mock book: open positions keyed by symbol + buying power (TWD). */
+export interface PositionBook {
+  positions: Record<string, Position>;
+  cashBalance: number;
+}
+
 /** A printed trade for the tick tape. */
 export interface Tick {
   id: number; // stable monotonic id for transition-group keys
