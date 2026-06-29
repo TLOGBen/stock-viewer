@@ -4,6 +4,8 @@ import type { Candle } from "../src/domain/index.js";
 import {
   parseStockDayRow,
   parseStockDayResponse,
+  parseTpexRow,
+  parseTpexResponse,
   rocDateToEpoch,
   stripCommas,
 } from "../src/domain/index.js";
@@ -125,6 +127,95 @@ describe("parseStockDayResponse", () => {
     expect(parseStockDayResponse({ stat: "OK" })).toEqual([]);
     expect(parseStockDayResponse({ stat: "OK", data: "nope" })).toEqual([]);
     expect(parseStockDayResponse(null)).toEqual([]);
+  });
+});
+
+describe("parseTpexRow", () => {
+  // Real TPEx tradingStock shape (8299 群聯, 115/06/01). Columns:
+  // [ROC date, 成交仟股, 成交仟元, 開, 高, 低, 收, 漲跌, 筆數].
+  const sampleRow: readonly unknown[] = [
+    "115/06/01",
+    "8,836",
+    "24,236,702",
+    "2,655.00",
+    "2,825.00",
+    "2,625.00",
+    "2,770.00",
+    "195.00",
+    "37,290",
+  ];
+
+  it("maps the row to a Candle, treating 仟股 as 張 directly (no /1000)", () => {
+    const candle = parseTpexRow(sampleRow);
+    expect(candle).not.toBeNull();
+    expect(candle!.open).toBe(2655);
+    expect(candle!.high).toBe(2825);
+    expect(candle!.low).toBe(2625);
+    expect(candle!.close).toBe(2770);
+    // 成交仟股 == 張: 8,836 stays 8836, NOT divided by 1000.
+    expect(candle!.volume).toBe(8836);
+    expect(candle!.timestamp).toBe(Date.UTC(2026, 5, 1));
+  });
+
+  it("returns null when the close cannot be parsed", () => {
+    const noClose = [...sampleRow];
+    noClose[6] = "--";
+    expect(parseTpexRow(noClose)).toBeNull();
+  });
+
+  it("returns null when the date is malformed", () => {
+    const badDate = [...sampleRow];
+    badDate[0] = "not-a-date";
+    expect(parseTpexRow(badDate)).toBeNull();
+  });
+});
+
+describe("parseTpexResponse", () => {
+  const okResponse = {
+    tables: [
+      {
+        title: "個股日成交資訊",
+        data: [
+          [
+            "115/06/01",
+            "8,836",
+            "24,236,702",
+            "2,655.00",
+            "2,825.00",
+            "2,625.00",
+            "2,770.00",
+            "195.00",
+            "37,290",
+          ],
+          [
+            "115/06/02",
+            "10,010",
+            "27,843,791",
+            "2,810.00",
+            "2,835.00",
+            "2,690.00",
+            "2,820.00",
+            "50.00",
+            "39,515",
+          ],
+        ],
+      },
+    ],
+  };
+
+  it("parses every data row under tables[0].data", () => {
+    const candles = parseTpexResponse(okResponse);
+    expect(candles).toHaveLength(2);
+    expect(candles[0]!.close).toBe(2770);
+    expect(candles[0]!.volume).toBe(8836);
+    expect(candles[1]!.close).toBe(2820);
+  });
+
+  it("returns [] when tables is empty, missing, or data is not an array", () => {
+    expect(parseTpexResponse({ tables: [] })).toEqual([]);
+    expect(parseTpexResponse({ tables: [{ data: "nope" }] })).toEqual([]);
+    expect(parseTpexResponse({})).toEqual([]);
+    expect(parseTpexResponse(null)).toEqual([]);
   });
 });
 
