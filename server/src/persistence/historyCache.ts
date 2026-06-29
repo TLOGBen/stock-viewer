@@ -197,22 +197,33 @@ export class HistoryCache {
   }
 
   /**
-   * Return ascending daily Candles for `symbol`. Fresh cache → use it; stale or
-   * missing → fetch + rewrite; fetch failure → stale cache if present, else [].
+   * Return ascending daily Candles for `symbol`. Fresh NON-EMPTY cache → use it;
+   * empty/stale/missing → fetch; fetch failure → stale cache if present, else [].
+   *
+   * An empty cached series is deliberately treated as stale: a transient fetch
+   * miss or a pre-fix empty (e.g. an OTC symbol cached before TPEx support
+   * existed) self-heals on the next view instead of masking real data for the
+   * whole TTL window. Empty fetch results are never persisted, so the cache can
+   * never be poisoned with [] in the first place.
    */
   async getDaily(symbol: string, exch: Exch): Promise<Candle[]> {
     const now = Date.now();
     const cached = await this.read(symbol);
 
-    if (cached != null && now - cached.asOf < STALE_MS) {
+    if (
+      cached != null &&
+      cached.candles.length > 0 &&
+      now - cached.asOf < STALE_MS
+    ) {
       return cached.candles;
     }
 
     try {
       const candles = await this.fetchDaily(symbol, exch, MONTHS_BACK);
-      // An empty fetch (e.g. otc) should not clobber a usable stale cache.
-      if (candles.length === 0 && cached != null) {
-        return cached.candles;
+      // Never persist an empty series (no cache poisoning) and never clobber a
+      // usable cache with an empty fetch — fall back to prior candles, else [].
+      if (candles.length === 0) {
+        return cached != null ? cached.candles : [];
       }
       const file: DailyCacheFile = { asOf: now, candles };
       await this.write(symbol, file).catch((err) =>
