@@ -1,0 +1,52 @@
+# Changelog
+
+本專案的所有重要變更皆記錄於此。格式依循 [Keep a Changelog](https://keepachangelog.com/zh-TW/1.1.0/)，版本號採用 [語意化版本](https://semver.org/lang/zh-TW/)。
+
+## [1.5.0] - 2026-06-29
+
+### Added
+- 持倉頁「可用資金」改為可點擊內嵌編輯，方便自訂模擬本金（what-if 模擬）。輸入支援 Enter／失焦提交、Esc 取消；其餘摘要欄位維持唯讀。
+- `usePositions` 新增 `setCashBalance()`，含輸入驗證（忽略非有限數與負數）。
+
+## [1.4.0] - 2026-06-26
+
+### Added
+- electron/web bridge 層 + 設定頁（最小化到系統匣）。
+
+## [1.3.0] - 2026-06-25
+
+### Added
+- 個股頁 PE/PB 與月營收歷史回填子系統（FinMind seed + 官方續抽）。
+
+## [1.2.0] - 2026-06-25
+
+### Added
+- 個股頁 winvest 式「一句話看懂」逐面向敘事 + 四燈號詳細數據明細。
+
+## [1.1.1] - 2026-06-25
+
+### Fixed
+- 個股頁四燈號 scores 顯示前 round；單期月營收正確顯示。
+
+## [1.1.0] - 2026-06-25
+
+### Added
+- 移植 winvest.tw 個股頁 research blocks 至個股詳細頁。
+
+### Changed
+- 後端完成六層分層（action/usecase/domain/persistence/adapters/middleware），移除過渡 shim。
+- CI 改為 macOS／Linux／Windows 三平台 matrix 建置並自動發佈 release draft。
+
+## [1.0.0] - 2026-06-24
+
+### Added
+- 台股即時交易台首版（Nuxt 3 前端 + Node/ws 後端）。
+- 以 Electron 打包為 Windows 桌面應用，含 CI release 流程。
+
+[1.5.0]: https://github.com/TLOGBen/stock-viewer/compare/v1.4.0...v1.5.0
+[1.4.0]: https://github.com/TLOGBen/stock-viewer/compare/v1.3.0...v1.4.0
+[1.3.0]: https://github.com/TLOGBen/stock-viewer/compare/v1.2.0...v1.3.0
+[1.2.0]: https://github.com/TLOGBen/stock-viewer/compare/v1.1.1...v1.2.0
+[1.1.1]: https://github.com/TLOGBen/stock-viewer/compare/v1.1.0...v1.1.1
+[1.1.0]: https://github.com/TLOGBen/stock-viewer/compare/v1.0.0...v1.1.0
+[1.0.0]: https://github.com/TLOGBen/stock-viewer/releases/tag/v1.0.0
