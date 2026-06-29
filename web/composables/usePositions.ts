@@ -57,6 +57,16 @@ function closePosition(symbol: string, price: number): void {
   positions.value = closeAtPrice(positions.value, symbol, price);
 }
 
+/**
+ * Manually override simulated buying power (TWD) — lets the user set up an
+ * arbitrary starting balance for what-if simulations. Non-finite or negative
+ * inputs are ignored so a stray/blank edit can never corrupt the book.
+ */
+function setCashBalance(amount: number): void {
+  if (!Number.isFinite(amount) || amount < 0) return;
+  cashBalance.value = amount;
+}
+
 /** Sum of unrealized P&L (TWD) across the book, priced via live quotes. */
 function totalUnrealized(quotes: Record<string, Quote>): number {
   return computeTotalUnrealized(positions.value, quotes);
@@ -68,6 +78,7 @@ export function usePositions(): {
   submitOrder: (o: OrderRequest, fee?: FeeBreakdown) => void;
   canAfford: (fee: FeeBreakdown | null, side: OrderSide) => boolean;
   closePosition: (symbol: string, price: number) => void;
+  setCashBalance: (amount: number) => void;
   totalUnrealized: (quotes: Record<string, Quote>) => number;
   totalRealized: ComputedRef<number>;
 } {
@@ -77,6 +88,7 @@ export function usePositions(): {
     submitOrder,
     canAfford,
     closePosition,
+    setCashBalance,
     totalUnrealized,
     totalRealized,
   };
