@@ -2,6 +2,14 @@
 
 本專案的所有重要變更皆記錄於此。格式依循 [Keep a Changelog](https://keepachangelog.com/zh-TW/1.1.0/)，版本號採用 [語意化版本](https://semver.org/lang/zh-TW/)。
 
+## [1.6.0] - 2026-06-29
+
+### Added
+- 上櫃（TPEx）個股日K回填：接上櫃買中心「個股日成交」端點，依交易所（tse／otc）分流。8299 等上櫃股不再無日K資料。
+
+### Fixed
+- `fetchDailyCandles` 先前對非上市（`exch !== "tse"`）直接回空陣列，導致所有上櫃股缺日K。
+
 ## [1.5.0] - 2026-06-29
 
 ### Added
@@ -43,6 +51,7 @@
 - 台股即時交易台首版（Nuxt 3 前端 + Node/ws 後端）。
 - 以 Electron 打包為 Windows 桌面應用，含 CI release 流程。
 
+[1.6.0]: https://github.com/TLOGBen/stock-viewer/compare/v1.5.0...v1.6.0
 [1.5.0]: https://github.com/TLOGBen/stock-viewer/compare/v1.4.0...v1.5.0
 [1.4.0]: https://github.com/TLOGBen/stock-viewer/compare/v1.3.0...v1.4.0
 [1.3.0]: https://github.com/TLOGBen/stock-viewer/compare/v1.2.0...v1.3.0
