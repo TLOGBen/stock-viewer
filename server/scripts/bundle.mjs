@@ -10,10 +10,21 @@
 // and index.ts (APP_VERSION) resolve correctly even without the DATA_DIR env.
 import { build } from "esbuild";
 import { fileURLToPath } from "node:url";
+import { readFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const root = resolve(here, "..");
+
+// The packaged bundle ships only server/bundle/, so a runtime read of
+// package.json is unreliable (→ 0.0.0). Bake the REAL desktop version (root
+// package.json — the one electron-builder tags) into the bundle so /api/health
+// reports it instead of the server's never-bumped 1.0.0 / a 0.0.0 fallback.
+const rootPkg = JSON.parse(
+  readFileSync(resolve(root, "..", "package.json"), "utf8"),
+);
+const appVersion =
+  typeof rootPkg.version === "string" ? rootPkg.version : "0.0.0";
 
 await build({
   entryPoints: [resolve(root, "src/index.ts")],
@@ -29,6 +40,9 @@ await build({
   banner: {
     js: "const __importMetaUrl = require('node:url').pathToFileURL(__filename).href;",
   },
-  define: { "import.meta.url": "__importMetaUrl" },
+  define: {
+    "import.meta.url": "__importMetaUrl",
+    __APP_VERSION__: JSON.stringify(appVersion),
+  },
   logLevel: "info",
 });

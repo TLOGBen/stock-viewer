@@ -2,6 +2,11 @@
 
 本專案的所有重要變更皆記錄於此。格式依循 [Keep a Changelog](https://keepachangelog.com/zh-TW/1.1.0/)，版本號採用 [語意化版本](https://semver.org/lang/zh-TW/)。
 
+## [1.7.2] - 2026-06-29
+
+### Fixed
+- 健康頁系統版本顯示正確的桌面版本：打包時將根 package.json 版本以 esbuild `define` 注入 bundle（`__APP_VERSION__`），dev 則回退讀根 package.json。修正打包後因 `server/package.json` 未隨 bundle 一起發佈而顯示 `0.0.0`（dev 顯示 server 內部 `1.0.0`）的問題。
+
 ## [1.7.1] - 2026-06-29
 
 ### Fixed
@@ -62,6 +67,7 @@
 - 台股即時交易台首版（Nuxt 3 前端 + Node/ws 後端）。
 - 以 Electron 打包為 Windows 桌面應用，含 CI release 流程。
 
+[1.7.2]: https://github.com/TLOGBen/stock-viewer/compare/v1.7.1...v1.7.2
 [1.7.1]: https://github.com/TLOGBen/stock-viewer/compare/v1.7.0...v1.7.1
 [1.7.0]: https://github.com/TLOGBen/stock-viewer/compare/v1.6.0...v1.7.0
 [1.6.0]: https://github.com/TLOGBen/stock-viewer/compare/v1.5.0...v1.6.0

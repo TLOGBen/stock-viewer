@@ -1,6 +1,7 @@
 import http from "node:http";
 import express from "express";
 import { createRequire } from "node:module";
+import { resolveAppVersion } from "./appVersion.js";
 import { config, INSTRUMENTS } from "./config.js";
 import {
   TwseFeed,
@@ -63,16 +64,20 @@ import type {
  * usecases stay injectable/testable (they never `new` an adapter themselves).
  */
 
-/** App version from package.json (surfaced by /api/health). */
-const APP_VERSION: string = (() => {
-  try {
-    const require = createRequire(import.meta.url);
-    const pkg = require("../package.json") as { version?: string };
-    return typeof pkg.version === "string" ? pkg.version : "0.0.0";
-  } catch {
-    return "0.0.0";
-  }
-})();
+/**
+ * App version surfaced by /api/health. Prefer the bundle-time injected
+ * `__APP_VERSION__` (defined from the ROOT package.json by bundle.mjs); in dev
+ * (tsx, no bundle) it is undefined, so fall back to reading the ROOT package.json
+ * (../../package.json relative to server/src). Either way the health page shows
+ * the real desktop release version, not the server's 1.0.0 / a 0.0.0 fallback.
+ */
+declare const __APP_VERSION__: string | undefined;
+const APP_VERSION: string = resolveAppVersion(
+  typeof __APP_VERSION__ !== "undefined" ? __APP_VERSION__ : undefined,
+  () =>
+    (createRequire(import.meta.url)("../../package.json") as { version?: string })
+      .version,
+);
 
 /** Base URL for the key-free TWSE OpenAPI opendata directory. */
 const OPENDATA_BASE = "https://openapi.twse.com.tw/v1/opendata";
