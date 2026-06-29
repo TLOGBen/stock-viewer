@@ -27,6 +27,11 @@ export {
   watchlistItems,
   type WatchlistView,
 } from "./manageWatchlist.js";
+export {
+  getPositionBook,
+  setPositionBook,
+  type PositionBookView,
+} from "./managePositions.js";
 export { getMarketStats, type GetMarketStatsDeps } from "./getMarketStats.js";
 export { fetchDailyCandles } from "./fetchHistory.js";
 export {

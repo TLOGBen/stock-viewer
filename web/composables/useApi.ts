@@ -8,6 +8,7 @@ import type {
   Quote,
   MarketStatus,
   Security,
+  PositionBook,
   Candle,
   KlineInterval,
   SymbolStats,
@@ -35,6 +36,8 @@ export function useApi(): {
   fetchSecurities(): Promise<Security[]>;
   getWatchlist(): Promise<{ symbols: string[]; items: Security[] }>;
   putWatchlist(symbols: string[]): Promise<{ symbols: string[]; items: Security[] }>;
+  getPositions(): Promise<PositionBook | null>;
+  putPositions(book: PositionBook): Promise<void>;
   fetchHealth(): Promise<HealthReport | null>;
   fetchCompany(symbol: string): Promise<CompanyView | null>;
   fetchRevenue(symbol: string): Promise<RevenueView | null>;
@@ -223,6 +226,38 @@ export function useApi(): {
     }
   }
 
+  /** Persisted mock position book; null on failure so the caller keeps defaults. */
+  async function getPositions(): Promise<PositionBook | null> {
+    try {
+      const res = await $fetch<{
+        positions: PositionBook["positions"];
+        cashBalance: number;
+        updatedAt: number;
+      }>(`${apiBase}/api/positions`);
+      if (res == null || typeof res !== "object") return null;
+      return {
+        positions: res.positions ?? {},
+        cashBalance:
+          typeof res.cashBalance === "number" ? res.cashBalance : 0,
+      };
+    } catch (error) {
+      console.error("getPositions failed:", error);
+      return null;
+    }
+  }
+
+  /** Persist the whole position book (fire-and-forget; errors are swallowed). */
+  async function putPositions(book: PositionBook): Promise<void> {
+    try {
+      await $fetch(`${apiBase}/api/positions`, {
+        method: "PUT",
+        body: book,
+      });
+    } catch (error) {
+      console.error("putPositions failed:", error);
+    }
+  }
+
   /**
    * System health snapshot (`/api/health`). Returns null on any failure so the
    * dashboard can render a disconnected state rather than throwing into the UI.
@@ -311,6 +346,8 @@ export function useApi(): {
     fetchSecurities,
     getWatchlist,
     putWatchlist,
+    getPositions,
+    putPositions,
     fetchHealth,
     fetchCompany,
     fetchRevenue,

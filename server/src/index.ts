@@ -18,6 +18,7 @@ import {
 } from "./middleware/index.js";
 import {
   WatchlistStore,
+  PositionBookStore,
   CandleStore,
   HistoryCache,
   BulkByDateCache,
@@ -322,6 +323,10 @@ async function main(): Promise<void> {
   );
   await watchlist.load();
 
+  // Persistent mock position book (positions + buying power), survives restart.
+  const positionBook = new PositionBookStore(config.dataDir);
+  await positionBook.load();
+
   // On-demand viewed symbols are shared between the feed and WS layer.
   const viewed = new Set<string>();
 
@@ -343,6 +348,7 @@ async function main(): Promise<void> {
       feed,
       provider,
       watchlist,
+      positionBook,
       candleStore,
       historyCache,
       version: APP_VERSION,

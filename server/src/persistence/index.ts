@@ -8,6 +8,7 @@ export type { CandleUpdate, IntradayInterval } from "./candleStore.js";
 export { HistoryCache, rollupDaily } from "./historyCache.js";
 export type { DailyFetcher } from "./historyCache.js";
 export { WatchlistStore } from "./watchlistStore.js";
+export { PositionBookStore } from "./positionBookStore.js";
 export {
   readUniverseCache,
   writeUniverseCache,

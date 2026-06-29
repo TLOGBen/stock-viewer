@@ -14,6 +14,7 @@ export * from "./officialClose.js";
 export * from "./searchIndex.js";
 export * from "./universe.js";
 export * from "./history.js";
+export * from "./positionBook.js";
 export * from "./twseDates.js";
 export * from "./tradingDays.js";
 export * from "./series.js";

@@ -3,6 +3,7 @@ import { config } from "../config.js";
 import type { TwseFeed } from "../usecase/quoteFeed.js";
 import type { UniverseProvider } from "../usecase/universeService.js";
 import type { WatchlistStore } from "../persistence/index.js";
+import type { PositionBookStore } from "../persistence/index.js";
 import type { CandleStore } from "../persistence/index.js";
 import type { HistoryCache } from "../persistence/index.js";
 import type { KlineInterval } from "../domain/index.js";
@@ -15,6 +16,8 @@ import {
   getWatchlist,
   setWatchlist,
   unknownSymbols,
+  getPositionBook,
+  setPositionBook,
   getMarketStats,
   getHealth,
   getCompany,
@@ -66,6 +69,7 @@ export interface ApiDeps {
   feed: TwseFeed;
   provider: UniverseProvider;
   watchlist: WatchlistStore;
+  positionBook: PositionBookStore;
   candleStore: CandleStore;
   historyCache: HistoryCache;
   /** App version surfaced by /health (defaults to config.version-less fallback). */
@@ -80,7 +84,8 @@ export interface ApiDeps {
 }
 
 export function createApiRouter(deps: ApiDeps): Router {
-  const { feed, provider, watchlist, candleStore, historyCache } = deps;
+  const { feed, provider, watchlist, positionBook, candleStore, historyCache } =
+    deps;
   const version = deps.version ?? "0.0.0";
   const router = Router();
 
@@ -221,6 +226,27 @@ export function createApiRouter(deps: ApiDeps): Router {
       .catch((err) => {
         console.error("[watchlist] set failed:", err);
         res.status(500).json({ error: "Failed to persist watchlist" });
+      });
+  });
+
+  // ─────────────────────────── Positions (mock book) ───────────────────────────
+
+  // GET returns the persisted book ({ positions, cashBalance, updatedAt }); an
+  // empty/absent file yields the default empty book at DEFAULT_CASH.
+  router.get("/positions", (_req, res) => {
+    res.json(getPositionBook(positionBook));
+  });
+
+  // PUT replaces the whole book. The body is the client's own mock state, so it
+  // is normalized (not 400-rejected) — garbage degrades to a clean book.
+  router.put("/positions", (req, res) => {
+    void setPositionBook(positionBook, req.body as unknown)
+      .then((view) => {
+        res.json(view);
+      })
+      .catch((err) => {
+        console.error("[positions] set failed:", err);
+        res.status(500).json({ error: "Failed to persist positions" });
       });
   });
 
