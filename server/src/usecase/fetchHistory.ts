@@ -1,18 +1,17 @@
 import type { Candle, Exch } from "../domain/index.js";
-import { parseStockDayResponse } from "../domain/index.js";
+import { parseStockDayResponse, parseTpexResponse } from "../domain/index.js";
 import {
   createHistoryClient,
   type HistoryClient,
 } from "../adapters/index.js";
 
 /**
- * usecase/fetchHistory — daily K-line backfill orchestration over the TWSE
- * STOCK_DAY endpoint. One request per month for the last `monthsBack` months
- * (via the injectable adapters/historyClient); the pure response→Candle parsing
- * lives in `domain/history`.
- *
- * TPEx (otc) has no reliable equivalent wired here yet, so otc returns [] and
- * never throws — tse is the priority surface for backfill.
+ * usecase/fetchHistory — daily K-line backfill orchestration over the per-
+ * exchange endpoints: TWSE STOCK_DAY (上市/tse) and TPEx tradingStock (上櫃/otc).
+ * One request per month for the last `monthsBack` months (via the injectable
+ * adapters/historyClient); the pure response→Candle parsing lives in
+ * `domain/history`. Each exchange differs only in its month-query date format
+ * and its fetch+parse pair; the loop, spacing, and merge are shared.
  */
 
 /** Polite spacing between month requests so we do not hammer the endpoint. */
@@ -23,27 +22,51 @@ function delay(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-/** "YYYYMM01" query date for the month that is `monthsAgo` months before now. */
+/** First-of-month `Date` (UTC) for the month `monthsAgo` months before `now`. */
+function monthStart(monthsAgo: number, now: Date): Date {
+  return new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - monthsAgo, 1));
+}
+
+/** TWSE "YYYYMM01" query date for the month that is `monthsAgo` before now. */
 function monthQueryDate(monthsAgo: number, now: Date): string {
-  const year = now.getUTCFullYear();
-  const month = now.getUTCMonth(); // 0-based
-  const target = new Date(Date.UTC(year, month - monthsAgo, 1));
+  const target = monthStart(monthsAgo, now);
   const yyyy = target.getUTCFullYear();
   const mm = String(target.getUTCMonth() + 1).padStart(2, "0");
   return `${yyyy}${mm}01`;
 }
 
-/**
- * Fetch (via the injectable adapters/historyClient) + parse a single month of
- * STOCK_DAY rows. Throws on HTTP error (from the client).
- */
-async function fetchMonth(
-  client: HistoryClient,
-  symbol: string,
-  date: string,
-): Promise<Candle[]> {
-  const json = await client.fetchMonthRaw(symbol, date);
-  return parseStockDayResponse(json);
+/** TPEx Gregorian "YYYY/MM/01" query date for the month `monthsAgo` before now. */
+function tpexMonthQueryDate(monthsAgo: number, now: Date): string {
+  const target = monthStart(monthsAgo, now);
+  const yyyy = target.getUTCFullYear();
+  const mm = String(target.getUTCMonth() + 1).padStart(2, "0");
+  return `${yyyy}/${mm}/01`;
+}
+
+/** Per-exchange month plan: how to build a query date and fetch+parse a month. */
+interface MonthPlan {
+  queryDate: (monthsAgo: number, now: Date) => string;
+  fetchMonth: (
+    client: HistoryClient,
+    symbol: string,
+    date: string,
+  ) => Promise<Candle[]>;
+}
+
+/** Resolve the fetch+parse + date-format pair for an exchange. */
+function planFor(exch: Exch): MonthPlan {
+  if (exch === "otc") {
+    return {
+      queryDate: tpexMonthQueryDate,
+      fetchMonth: async (client, symbol, date) =>
+        parseTpexResponse(await client.fetchTpexMonthRaw(symbol, date)),
+    };
+  }
+  return {
+    queryDate: monthQueryDate,
+    fetchMonth: async (client, symbol, date) =>
+      parseStockDayResponse(await client.fetchMonthRaw(symbol, date)),
+  };
 }
 
 /** Merge month batches: sort ascending by timestamp and dedupe (last write wins). */
@@ -60,10 +83,10 @@ function mergeCandles(batches: Candle[][]): Candle[] {
 /**
  * Fetch daily Candles for `symbol` over the last `monthsBack` months.
  *
- * - tse: one STOCK_DAY request per month, spaced by a short delay; each month
- *   is wrapped in try/catch so a single failure never kills the rest. The
- *   merged result is sorted ascending and deduped by timestamp.
- * - otc: returns [] (no reliable endpoint wired) — never throws.
+ * One request per month against the exchange's endpoint (tse → STOCK_DAY,
+ * otc → TPEx tradingStock), spaced by a short delay; each month is wrapped in
+ * try/catch so a single failure never kills the rest. The merged result is
+ * sorted ascending and deduped by timestamp.
  */
 export async function fetchDailyCandles(
   symbol: string,
@@ -71,8 +94,7 @@ export async function fetchDailyCandles(
   monthsBack: number,
   client: HistoryClient = createHistoryClient(),
 ): Promise<Candle[]> {
-  if (exch !== "tse") return [];
-
+  const plan = planFor(exch);
   const months = Number.isFinite(monthsBack)
     ? Math.max(1, Math.trunc(monthsBack))
     : 1;
@@ -81,9 +103,9 @@ export async function fetchDailyCandles(
 
   for (let i = 0; i < months; i++) {
     if (i > 0) await delay(INTER_REQUEST_DELAY_MS);
-    const date = monthQueryDate(i, now);
+    const date = plan.queryDate(i, now);
     try {
-      const monthCandles = await fetchMonth(client, symbol, date);
+      const monthCandles = await plan.fetchMonth(client, symbol, date);
       batches.push(monthCandles);
     } catch (err) {
       console.error(
